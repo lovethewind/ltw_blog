@@ -19,7 +19,7 @@ from apps.web.core.es.constant.es_constant import ESConstant
 from apps.web.core.es.utils.es_util import ESUtil
 from apps.web.dao.article_dao import ArticleDao
 from apps.web.dao.user_dao import UserDao
-from apps.web.dto.article_dto import ArticleDTO, ArticleBaseInfoDTO, ArticleListDTO, ArticleESDTO
+from apps.web.dto.article_dto import ArticleDTO, ArticleBaseInfoDTO, ArticleListDTO
 from apps.web.dto.user_dto import UserBaseInfoDTO, UserSimpleInfoDTO
 from apps.web.service.source_service import SourceService
 from apps.web.utils.ws_util import manager
@@ -251,6 +251,6 @@ class ArticleService:
             await self._update_article_to_es(article)
 
     async def _update_article_to_es(self, article):
-        item = ArticleESDTO.model_validate(article, from_attributes=True)
+        item = ArticleListDTO.model_validate(article, from_attributes=True)
         item.user = await manager.get_user_info(article.user_id, UserSimpleInfoDTO)
         await self.es_util.client.index(index=ESConstant.ARTICLE_INDEX, id=article.id, document=item.model_dump())

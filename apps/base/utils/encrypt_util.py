@@ -14,4 +14,4 @@ class EncryptUtil:
 
 
 if __name__ == '__main__':
-    print(EncryptUtil.encrypt("111"))
+    print(EncryptUtil.encrypt("nacoss1"))

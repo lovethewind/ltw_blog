@@ -11,10 +11,10 @@ from apps.base.utils.redis_util import RedisUtil
 from apps.web.core.es.constant.es_constant import ESConstant
 from apps.web.core.es.utils.es_util import ESUtil
 from apps.web.core.es.utils.html_util import HtmlUtil
+from apps.web.dao.article_dao import ArticleDao
+from apps.web.dto.article_dto import ArticleListDTO, ArticleBaseInfoDTO
 from apps.web.dto.user_dto import UserBaseInfoDTO
 from apps.web.vo.search_vo import ArticleSearchVO, ArticleRecommendVO, UserSearchVO
-from apps.web.dao.article_dao import ArticleDao
-from apps.web.dto.article_dto import ArticleListDTO, ArticleBaseInfoDTO, ArticleESDTO
 
 
 @Component()
@@ -111,11 +111,12 @@ class SearchService:
         q = Article.filter(is_deleted=False)
         page = await Pagination[ArticleListDTO](current, 500, q).execute()
         for i in range(page.pages):
-            records = await self.article_dao.get_article_detail_by_ids(articles=page.records, clazz=ArticleESDTO)
+            records = await self.article_dao.get_article_detail_by_ids(articles=page.records)
             ret = []
             for record in records:
                 record.content = HtmlUtil.remove_html_tags(record.content)
-                record._index = ESConstant.ARTICLE_INDEX
-                record._id = record.id
-                ret.append(record.model_dump())
+                record_dict = record.model_dump()
+                record_dict["_index"] = ESConstant.ARTICLE_INDEX
+                record_dict["_id"] = record.id
+                ret.append(record_dict)
             await self.es_util.helpers.async_bulk(self.es_util.client, ret)

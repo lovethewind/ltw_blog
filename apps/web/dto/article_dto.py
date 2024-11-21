@@ -3,7 +3,6 @@
 # @File    : article_dto.py
 
 import datetime
-from email.policy import default
 from typing import Optional
 
 from pydantic import Field
@@ -32,27 +31,6 @@ class ArticleListDTO(BaseDTO):
     comment_count: Optional[int] = Field(default=0)
     user: Optional[UserBaseInfoDTO] = None
 
-
-class ArticleESDTO(BaseDTO):
-    _id: int = None
-    _index: str = None
-    id: int
-    user_id: int
-    title: str
-    cover: str
-    category_id: int
-    tag_list: list[int]
-    content: str
-    is_markdown: bool
-    is_original: bool
-    status: ArticleStatusEnum
-    create_time: datetime.datetime
-    edit_time: Optional[datetime.datetime] = None
-    view_count: Optional[int] = Field(default=0)
-    like_count: Optional[int] = Field(default=0)
-    collect_count: Optional[int] = Field(default=0)
-    comment_count: Optional[int] = Field(default=0)
-    user: Optional[UserBaseInfoDTO] = None
 
 class ArticleBaseInfoDTO(BaseDTO):
     id: int
