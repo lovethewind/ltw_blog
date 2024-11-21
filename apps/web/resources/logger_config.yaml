@@ -1,0 +1,52 @@
+version: 1
+disable_existing_loggers: false
+filters: {}
+formatters:
+  verbose:
+    format: '%(asctime)s -%(levelname)s %(process)d,%(thread)d %(funcName)s %(filename)s:%(lineno)s %(message)s'
+  simple:
+    format: '[%(asctime)s][%(levelname)s][%(filename)s:%(lineno)d]%(message)s'
+handlers:
+  default:
+    level: DEBUG
+    class: concurrent_log_handler.ConcurrentRotatingFileHandler
+    filename: logs/root.log
+    maxBytes: 10485760 # 10M
+    backupCount: 2
+    formatter: verbose
+    encoding: utf-8
+  console:
+    level: DEBUG
+    class: logging.StreamHandler
+    formatter: verbose
+  api:
+    level: INFO
+    class: concurrent_log_handler.ConcurrentRotatingFileHandler
+    filename: logs/api.log
+    maxBytes: 10485760 # 10M
+    backupCount: 2
+    formatter: simple
+    encoding: utf-8
+root:
+  level: INFO
+  handlers:
+  - default
+  - console
+loggers:
+  api:
+    handlers:
+    - api
+    level: INFO
+    propagate: true
+  gunicorn:
+    propagate: true
+  gunicorn.access:
+    propagate: true
+  gunicorn.error:
+    propagate: true
+  uvicorn:
+    propagate: true
+  uvicorn.access:
+    propagate: true
+  uvicorn.error:
+    propagate: true
