@@ -45,6 +45,3 @@ class WebSocketService:
                 logger.info(f"【{user_id}】关闭连接系统")
                 await manager.disconnect(websocket)
                 break
-
-    async def test(self, message: WSMessageDTO[SystemMessageDTO]):
-        await manager.send_message(message)
