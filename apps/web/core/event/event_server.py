@@ -3,6 +3,7 @@
 # @File    : event_server.py
 import asyncio
 from inspect import iscoroutinefunction
+import threading
 from typing import Callable
 
 from apps.web.config.logger_config import logger
@@ -11,6 +12,7 @@ from apps.web.core.event.event_name import EventName
 
 class EventServer:
     _instance: "EventServer"
+    _lock = threading.Lock()
 
     def __init__(self):
         if hasattr(self, "_instance"):
@@ -20,7 +22,9 @@ class EventServer:
     @classmethod
     def get_instance(cls):
         if not hasattr(cls, "_instance"):
-            cls._instance = cls()
+            with cls._lock:
+                if not hasattr(cls, "_instance"):
+                    cls._instance = cls()
         return cls._instance
 
     def on(self, event_name: EventName, func: Callable):
