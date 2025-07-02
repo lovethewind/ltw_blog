@@ -5,15 +5,18 @@ import hashlib
 import hmac
 import json
 import logging
+from logging.handlers import TimedRotatingFileHandler
 import os
-import pathlib
 import platform
 import socket
 import threading
 import time
-from logging.handlers import TimedRotatingFileHandler
-from typing import Dict
+from typing import Any
 
+import requests
+from requests import Response
+
+from .auth import StaticCredentialsProvider
 from .task import HeartbeatInfo, HeartbeatTask
 
 try:
@@ -24,21 +27,12 @@ except ImportError:
 from multiprocessing import Process, Manager, Queue, pool
 from threading import RLock, Thread
 
-try:
-    # python3.6
-    from http import HTTPStatus
-    from urllib.request import Request, urlopen, ProxyHandler, HTTPSHandler, build_opener
-    from urllib.parse import urlencode, unquote_plus, quote
-    from urllib.error import HTTPError, URLError
-except ImportError:
-    # python2.7
-    import httplib as HTTPStatus
-    from urllib2 import Request, urlopen, HTTPError, URLError, ProxyHandler, HTTPSHandler, build_opener
-    from urllib import urlencode, unquote_plus, quote
+from http import HTTPStatus
+from urllib.request import urlopen
+from urllib.parse import urlencode, unquote_plus
+from urllib.error import HTTPError, URLError
 
-    base64.encodebytes = base64.encodestring
-
-from .commons import synchronized_with_attr, truncate, python_version_bellow
+from .commons import synchronized_with_attr, truncate
 from .params import group_key, parse_key, is_valid
 from .files import read_file_str, save_file, delete_file
 from .exception import NacosException, NacosRequestException
@@ -47,8 +41,7 @@ from .timer import NacosTimer, NacosTimerManager
 
 logger = logging.getLogger(__name__)
 
-NACOS_DIR = pathlib.Path(__file__).parent
-VERSION = "1.0.0"
+VERSION = "0.1.16"
 
 DEFAULT_GROUP_NAME = "DEFAULT_GROUP"
 DEFAULT_NAMESPACE = ""
@@ -62,12 +55,14 @@ DEFAULTS = {
     "PULLING_TIMEOUT": 30,  # in seconds
     "PULLING_CONFIG_SIZE": 3000,
     "CALLBACK_THREAD_NUM": 10,
-    "FAILOVER_BASE": NACOS_DIR / "nacos-data/data",
-    "SNAPSHOT_BASE": NACOS_DIR / "nacos-data/snapshot",
+    "FAILOVER_BASE": "nacos-data/data",
+    "SNAPSHOT_BASE": "nacos-data/snapshot",
 }
 
 OPTIONS = {"default_timeout", "pulling_timeout", "pulling_config_size", "callback_thread_num", "failover_base",
            "snapshot_base", "no_snapshot", "proxies"}
+
+session = requests.Session()
 
 
 def process_common_config_params(data_id, group):
@@ -243,12 +238,12 @@ class NacosClient:
                     except ValueError:
                         logger.warning(
                             "[get-server-list] bad server address:%s ignored" % server_info)
-            if self.server_list != server_list_temp:
+            if (self.server_list != server_list_temp):
                 self.server_list = server_list_temp
         return server_list_temp
 
     def get_server_from_url_task(self, url):
-        while True:
+        while (True):
             try:
                 time.sleep(10)
                 self.get_server_from_url(url)
@@ -278,7 +273,8 @@ class NacosClient:
             logger.propagate = False
 
     def __init__(self, server_addresses=None, endpoint=None, namespace=None, ak=None,
-                 sk=None, username=None, password=None, logDir=None, log_level=None, log_rotation_backup_count=None):
+                 sk=None, username=None, password=None, logDir=None, log_level=None,
+                 log_rotation_backup_count=None, credentials_provider=None):
         self.server_list = list()
         self.initLog(logDir, log_level, log_rotation_backup_count)
         try:
@@ -288,7 +284,7 @@ class NacosClient:
                 logger.info("user server address  " + server_addresses)
             elif endpoint is not None and endpoint.strip() != "":
                 url = endpoint.strip()
-                if "?" not in endpoint:
+                if ("?" not in endpoint):
                     url = url + "?namespace=" + namespace
                 else:
                     url = url + "&namespace=" + namespace
@@ -310,8 +306,7 @@ class NacosClient:
 
         self.endpoint = endpoint
         self.namespace = namespace or DEFAULT_NAMESPACE or ""
-        self.ak = ak
-        self.sk = sk
+        self.credentials_provider = credentials_provider if credentials_provider else StaticCredentialsProvider(ak, sk)
         self.username = username
         self.password = password
 
@@ -332,7 +327,8 @@ class NacosClient:
         self.process_mgr = None
 
         self.default_timeout = DEFAULTS["TIMEOUT"]
-        self.auth_enabled = self.ak and self.sk
+        credentials = self.credentials_provider.get_credentials()
+        self.auth_enabled = credentials.get_access_key_id() and credentials.get_access_key_secret()
         self.cai_enabled = True
         self.pulling_timeout = DEFAULTS["PULLING_TIMEOUT"]
         self.pulling_config_size = DEFAULTS["PULLING_CONFIG_SIZE"]
@@ -343,10 +339,10 @@ class NacosClient:
         self.proxies = None
         self.logDir = logDir
 
-        self.heartbeats: Dict[str, HeartbeatTask] = {}
+        self.heartbeats = {}
         if self.username and self.password:
             self.get_access_token()
-        logger.info("[client-init] endpoint:%s, namespace:%s" % (endpoint, namespace))
+        logger.info("[client-init] endpoint:%s, tenant:%s" % (endpoint, namespace))
 
     def set_options(self, **kwargs):
         for k, v in kwargs.items():
@@ -376,10 +372,10 @@ class NacosClient:
             "group": group,
         }
         if self.namespace:
-            params["namespaceId"] = self.namespace
+            params["tenant"] = self.namespace
 
         try:
-            resp = self._do_sync_req("/nacos/v2/cs/config", None, params, None,
+            resp = self._do_sync_req("/nacos/v1/cs/configs", None, params, None,
                                      timeout or self.default_timeout, "DELETE")
             c = resp.read()
             logger.info("[remove] remove group:%s, data_id:%s, server response:%s" % (
@@ -416,7 +412,7 @@ class NacosClient:
         }
 
         if self.namespace:
-            params["namespaceId"] = self.namespace
+            params["tenant"] = self.namespace
 
         if app_name:
             params["appName"] = app_name
@@ -425,7 +421,7 @@ class NacosClient:
             params["type"] = config_type
 
         try:
-            resp = self._do_sync_req("/nacos/v2/cs/config", None, params, None,
+            resp = self._do_sync_req("/nacos/v1/cs/configs", None, params, None,
                                      timeout or self.default_timeout, "POST")
             c = resp.read()
             logger.info("[publish] publish content, group:%s, data_id:%s, server response:%s" % (
@@ -443,7 +439,7 @@ class NacosClient:
             logger.exception("[publish] exception %s occur" % str(e))
             raise
 
-    def get_config(self, data_id, group, timeout=None, no_snapshot=None, use_local_cache=True):
+    def get_config(self, data_id, group, timeout=None, no_snapshot=None):
         no_snapshot = self.no_snapshot if no_snapshot is None else no_snapshot
         data_id, group = process_common_config_params(data_id, group)
         logger.debug("[get-config] data_id:%s, group:%s, namespace:%s, timeout:%s" % (
@@ -454,20 +450,20 @@ class NacosClient:
             "group": group,
         }
         if self.namespace:
-            params["namespaceId"] = self.namespace
+            params["tenant"] = self.namespace
 
         cache_key = group_key(data_id, group, self.namespace)
-        if use_local_cache:
-            # get from failover
-            content = read_file_str(self.failover_base, cache_key)
-            if content is None:
-                logger.debug("[get-config] failover config is not exist for %s, try to get from server" % cache_key)
-            else:
-                logger.debug("[get-config] get %s from failover directory, content is %s" % (cache_key, truncate(content)))
-                return content
+        # get from failover
+        content = read_file_str(self.failover_base, cache_key)
+        if content is None:
+            logger.debug("[get-config] failover config is not exist for %s, try to get from server" % cache_key)
+        else:
+            logger.debug("[get-config] get %s from failover directory, content is %s" % (cache_key, truncate(content)))
+            return content
+
         # get from server
         try:
-            resp = self._do_sync_req("/nacos/v2/cs/config", None, params, None, timeout or self.default_timeout)
+            resp = self._do_sync_req("/nacos/v1/cs/configs", None, params, None, timeout or self.default_timeout)
             content = resp.read().decode("UTF-8")
         except HTTPError as e:
             if e.code == HTTPStatus.NOT_FOUND:
@@ -498,12 +494,6 @@ class NacosClient:
             return content
 
         if content is not None:
-            # 将content中的data提取出来
-            try:
-                content = json.loads(content)
-                content = content.get("data")
-            except Exception as e:
-                raise NacosException("Request Error, error: %s" % e)
             logger.debug(
                 "[get-config] content from server:%s, data_id:%s, group:%s, namespace:%s, try to save snapshot" % (
                     truncate(content), data_id, group, self.namespace))
@@ -536,7 +526,7 @@ class NacosClient:
             "pageSize": page_size,
         }
         if self.namespace:
-            params["namespaceId"] = self.namespace
+            params["tenant"] = self.namespace
 
         cache_key = group_key("", "", self.namespace)
         # get from failover
@@ -549,7 +539,7 @@ class NacosClient:
 
         # get from server
         try:
-            resp = self._do_sync_req("/nacos/v2/cs/config", None, params, None, timeout or self.default_timeout)
+            resp = self._do_sync_req("/nacos/v1/cs/configs", None, params, None, timeout or self.default_timeout)
             content = resp.read().decode("UTF-8")
         except HTTPError as e:
             if e.code == HTTPStatus.CONFLICT:
@@ -635,11 +625,12 @@ class NacosClient:
                 break
         else:
             logger.debug("[add-watcher] no puller available, new one and add key:%s" % cache_key)
-            key_list = [cache_key]
+            key_list = self.process_mgr.list()
+            key_list.append(cache_key)
             sys_os = platform.system()
 
             puller = Thread(target=self._do_pulling, args=(key_list, self.notify_queue))
-            puller.daemon = True
+            puller.setDaemon(True)
 
             puller.start()
             self.puller_mapping[cache_key] = (puller, key_list)
@@ -680,7 +671,12 @@ class NacosClient:
                 if isinstance(puller_info[0], Process):
                     puller_info[0].terminate()
 
-    def _do_sync_req(self, url, headers=None, params=None, data=None, timeout=None, method="GET", module="config"):
+    def _do_sync_req(self, url, headers=None, params=None, data=None, timeout=None, method="GET",
+                     module="config",
+                     proxies=None,
+                     json_data=None):
+        if proxies:
+            session.proxies.update(proxies)
         all_headers = {}
         if headers:
             all_headers.update(headers)
@@ -694,7 +690,6 @@ class NacosClient:
             "[do-sync-req] url:%s, headers:%s, params:%s, data:%s, timeout:%s" % (
                 url, all_headers, all_params, data, timeout))
         tries = 0
-        server = None
         while True:
             try:
                 server_info = self.get_server()
@@ -706,29 +701,15 @@ class NacosClient:
                 server_url = server
                 if not server_url.startswith("http"):
                     server_url = "%s://%s" % ("http", server)
-                if python_version_bellow("3"):
-                    req = Request(url=server_url + url, data=urlencode(data).encode() if data else None,
-                                  headers=all_headers)
-                    req.get_method = lambda: method
-                    ctx = ssl.create_default_context()
-                    ctx.check_hostname = False
-                    ctx.verify_mode = ssl.CERT_NONE
-                else:
-                    req = Request(url=server_url + url, data=urlencode(data).encode() if data else None,
-                                  headers=all_headers, method=method)
-                    ctx = ssl.SSLContext()
-                # build a new opener that adds proxy setting so that http request go through the proxy
-                if self.proxies:
-                    proxy_support = ProxyHandler(self.proxies)
-                    https_support = HTTPSHandler(context=ctx)
-                    opener = build_opener(proxy_support, https_support)
-                    resp = opener.open(req, timeout=timeout)
-                else:
-                    # for python version compatibility
-                    if python_version_bellow("2.7.5"):
-                        resp = urlopen(req, timeout=timeout)
-                    else:
-                        resp = urlopen(req, timeout=timeout, context=ctx)
+                resp: Response | Any = session.request(
+                    url=server_url + url,
+                    method=method,
+                    data=data,
+                    json=json_data,
+                    headers=all_headers,
+                    timeout=timeout
+                )
+                resp.read = lambda: resp.content
                 logger.debug("[do-sync-req] info from server:%s" % server)
                 return resp
             except HTTPError as e:
@@ -755,6 +736,7 @@ class NacosClient:
             cache_pool[cache_key] = CacheData(cache_key, self)
 
         while cache_list:
+            time.sleep(1)
             unused_keys = set(cache_pool.keys())
             contains_init_key = False
             probe_update_string = ""
@@ -778,7 +760,7 @@ class NacosClient:
 
             logger.debug(
                 "[do-pulling] try to detected change from server probe string is %s" % truncate(probe_update_string))
-            headers = {"Long-Pulling-Timeout": int(self.pulling_timeout * 1000)}
+            headers = {"Long-Pulling-Timeout": str(int(self.pulling_timeout * 1000))}
             # if contains_init_key:
             #     headers["longPullingNoHangUp"] = "true"
 
@@ -793,16 +775,14 @@ class NacosClient:
                     logger.info("[do-pulling] following keys are changed from server %s" % truncate(str(changed_keys)))
             except NacosException as e:
                 logger.error("[do-pulling] nacos exception: %s, waiting for recovery" % str(e))
-                time.sleep(1)
             except Exception as e:
                 logger.exception("[do-pulling] exception %s occur, return empty list, waiting for recovery" % str(e))
-                time.sleep(1)
 
             for cache_key, cache_data in cache_pool.items():
                 cache_data.is_init = False
                 if cache_key in changed_keys:
                     data_id, group, namespace = parse_key(cache_key)
-                    content = self.get_config(data_id, group, use_local_cache=False)
+                    content = self.get_config(data_id, group)
                     cache_data.md5 = NacosClient.get_md5(content)
                     cache_data.content = content
                 queue.put((cache_key, cache_data.content, cache_data.md5))
@@ -815,42 +795,45 @@ class NacosClient:
         self.puller_mapping = dict()
         self.notify_queue = Queue()
         self.callback_tread_pool = pool.ThreadPool(self.callback_thread_num)
-        # self.process_mgr = Manager()
+        self.process_mgr = Manager()
         t = Thread(target=self._process_polling_result)
-        t.daemon = True
+        t.setDaemon(True)
         t.start()
         logger.info("[init-pulling] init completed")
 
     def _process_polling_result(self):
-        while True:
-            cache_key, content, md5 = self.notify_queue.get()
-            # logger.info("[process-polling-result] receive an event:%s" % cache_key)
-            wl = self.watcher_mapping.get(cache_key)
-            if not wl:
-                logger.warning("[process-polling-result] no watcher on %s, ignored" % cache_key)
-                continue
+        try:
+            while True:
+                cache_key, content, md5 = self.notify_queue.get()
+                logger.info("[process-polling-result] receive an event:%s" % cache_key)
+                wl = self.watcher_mapping.get(cache_key)
+                if not wl:
+                    logger.warning("[process-polling-result] no watcher on %s, ignored" % cache_key)
+                    continue
 
-            data_id, group, namespace = parse_key(cache_key)
-            plain_content = content
+                data_id, group, namespace = parse_key(cache_key)
+                plain_content = content
 
-            params = {
-                "data_id": data_id,
-                "group": group,
-                "namespace": namespace,
-                "raw_content": content,
-                "content": plain_content,
-            }
-            for watcher in wl:
-                if not watcher.last_md5 == md5:
-                    logger.info(
-                        "[process-polling-result] md5 changed since last call, calling %s with changed md5: %s"
-                        % (watcher.callback.__name__, md5))
-                    try:
-                        self.callback_tread_pool.apply(watcher.callback, (params,))
-                    except Exception as e:
-                        logger.exception("[process-polling-result] exception %s occur while calling %s " % (
-                            str(e), watcher.callback.__name__))
-                    watcher.last_md5 = md5
+                params = {
+                    "data_id": data_id,
+                    "group": group,
+                    "namespace": namespace,
+                    "raw_content": content,
+                    "content": plain_content,
+                }
+                for watcher in wl:
+                    if not watcher.last_md5 == md5:
+                        logger.info(
+                            "[process-polling-result] md5 changed since last call, calling %s with changed md5: %s ,params: %s"
+                            % (watcher.callback.__name__, md5, params))
+                        try:
+                            self.callback_tread_pool.apply(watcher.callback, (params,))
+                        except Exception as e:
+                            logger.exception("[process-polling-result] exception %s occur while calling %s " % (
+                                str(e), watcher.callback.__name__))
+                        watcher.last_md5 = md5
+        except (EOFError, OSError) as e:
+            logger.exception(f"[process-polling-result] break when receive exception of {type(e)}")
 
     @staticmethod
     def _inject_version_info(headers):
@@ -873,7 +856,7 @@ class NacosClient:
             self.token_ttl = response_data.get('tokenTtl', 18000)  # 默认使用返回值，无返回则使用18000秒
             self.token_expire_time = current_time + self.token_ttl - 10  # 更新 Token 的过期时间
             logger.info(
-                f"[get_access_token] AccessToken: ***, TTL: {self.token_ttl}，force_refresh：{force_refresh}")
+                f"[get_access_token] AccessToken: {self.token}, TTL: {self.token_ttl}，force_refresh：{force_refresh}")
         except Exception as e:
             logger.exception("[get-access-token] exception %s occur" % str(e))
             raise
@@ -893,7 +876,8 @@ class NacosClient:
         if not params and not data:
             return
         ts = str(int(time.time() * 1000))
-        ak, sk = self.ak, self.sk
+        # now we have a fixed credentials (access key or sts token)
+        credentials = self.credentials_provider.get_credentials()
 
         sign_str = ""
 
@@ -901,20 +885,22 @@ class NacosClient:
         # config signature
         if "config" == module:
             headers.update({
-                "Spas-AccessKey": ak,
+                "Spas-AccessKey": credentials.get_access_key_id(),
                 "timeStamp": ts,
             })
 
-            namespace = params_to_sign.get("namespaceId")
+            tenant = params_to_sign.get("tenant")
             group = params_to_sign.get("group")
 
-            if namespace:
-                sign_str = namespace + "+"
+            if tenant:
+                sign_str = tenant + "+"
             if group:
                 sign_str = sign_str + group + "+"
             if sign_str:
                 sign_str += ts
-                headers["Spas-Signature"] = self.__do_sign(sign_str, sk)
+                headers["Spas-Signature"] = self.__do_sign(sign_str, credentials.get_access_key_secret())
+            if credentials.get_security_token():
+                headers["Spas-SecurityToken"] = credentials.get_security_token()
 
         # naming signature
         else:
@@ -931,10 +917,12 @@ class NacosClient:
                 sign_str = ts
 
             params.update({
-                "ak": ak,
+                "ak": credentials.get_access_key_id(),
                 "data": sign_str,
-                "signature": self.__do_sign(sign_str, sk),
+                "signature": self.__do_sign(sign_str, credentials.get_access_key_secret()),
             })
+            if credentials.get_security_token():
+                params.update({"Spas-SecurityToken": credentials.get_security_token()})
 
     def __do_sign(self, sign_str, sk):
         return base64.encodebytes(
@@ -970,7 +958,7 @@ class NacosClient:
             params["namespaceId"] = self.namespace
 
         try:
-            resp = self._do_sync_req("/nacos/v2/ns/instance", None, params, None, self.default_timeout, "POST",
+            resp = self._do_sync_req("/nacos/v1/ns/instance", None, params, None, self.default_timeout, "POST",
                                      "naming")
             c = resp.read()
             logger.info("[add-naming-instance] ip:%s, port:%s, service_name:%s, namespace:%s, server response:%s" % (
@@ -1021,7 +1009,7 @@ class NacosClient:
             params["namespaceId"] = self.namespace
 
         try:
-            resp = self._do_sync_req("/nacos/v2/ns/instance", None, params, None, self.default_timeout, "DELETE",
+            resp = self._do_sync_req("/nacos/v1/ns/instance", None, params, None, self.default_timeout, "DELETE",
                                      "naming")
             c = resp.read()
             logger.info("[remove-naming-instance] ip:%s, port:%s, service_name:%s, namespace:%s, server response:%s" % (
@@ -1069,7 +1057,7 @@ class NacosClient:
             params["namespaceId"] = self.namespace
 
         try:
-            resp = self._do_sync_req("/nacos/v2/ns/instance", None, params, None, self.default_timeout, "PUT", "naming")
+            resp = self._do_sync_req("/nacos/v1/ns/instance", None, params, None, self.default_timeout, "PUT", "naming")
             c = resp.read()
             logger.info("[modify-naming-instance] ip:%s, port:%s, service_name:%s, namespace:%s, server response:%s" % (
                 ip, port, service_name, self.namespace, c))
@@ -1110,7 +1098,7 @@ class NacosClient:
             params['groupName'] = group_name
 
         try:
-            resp = self._do_sync_req("/nacos/v2/ns/instance/list", None, params, None, self.default_timeout, "GET",
+            resp = self._do_sync_req("/nacos/v1/ns/instance/list", None, params, None, self.default_timeout, "GET",
                                      "naming")
             c = resp.read()
             logger.info("[list-naming-instance] service_name:%s, namespace:%s, server response:%s" %
@@ -1143,7 +1131,7 @@ class NacosClient:
             params["namespaceId"] = self.namespace
 
         try:
-            resp = self._do_sync_req("/nacos/v2/ns/instance", None, params, None, self.default_timeout, "GET", "naming")
+            resp = self._do_sync_req("/nacos/v1/ns/instance", None, params, None, self.default_timeout, "GET", "naming")
             c = resp.read()
             logger.info("[get-naming-instance] ip:%s, port:%s, service_name:%s, namespace:%s, server response:%s" %
                         (ip, port, service_name, self.namespace, c))
@@ -1159,8 +1147,8 @@ class NacosClient:
 
     def send_heartbeat(self, service_name, ip, port, cluster_name=None, weight=1.0, metadata=None, ephemeral=True,
                        group_name=DEFAULT_GROUP_NAME):
-        logger.info("[send-heartbeat] ip:%s, port:%s, service_name:%s, namespace:%s" % (ip, port, service_name,
-                                                                                        self.namespace))
+        logger.debug("[send-heartbeat] ip:%s, port:%s, service_name:%s, namespace:%s" % (ip, port, service_name,
+                                                                                         self.namespace))
         if "@@" not in service_name and group_name:
             service_name = group_name + "@@" + service_name
 
@@ -1192,11 +1180,11 @@ class NacosClient:
             params["namespaceId"] = self.namespace
 
         try:
-            resp = self._do_sync_req("/nacos/v2/ns/instance/beat", None, params, None, self.default_timeout, "PUT",
+            resp = self._do_sync_req("/nacos/v1/ns/instance/beat", None, params, None, self.default_timeout, "PUT",
                                      "naming")
             c = resp.read()
-            logger.info("[send-heartbeat] ip:%s, port:%s, service_name:%s, namespace:%s, server response:%s" %
-                        (ip, port, service_name, self.namespace, c))
+            logger.debug("[send-heartbeat] ip:%s, port:%s, service_name:%s, namespace:%s, server response:%s" %
+                         (ip, port, service_name, self.namespace, c))
             return json.loads(c.decode("UTF-8"))
         except HTTPError as e:
             if e.code == HTTPStatus.FORBIDDEN:
@@ -1210,7 +1198,7 @@ class NacosClient:
     def subscribe(self,
                   listener_fn, listener_interval=7, *args, **kwargs):
         """
-        reference at `/nacos/v2/ns/instance/list` in https://nacos.io/zh-cn/docs/open-api.html
+        reference at `/nacos/v1/ns/instance/list` in https://nacos.io/zh-cn/docs/open-api.html
         :param listener_fn           监听方法，可以是元组，列表，单个监听方法
         :param listener_interval     监听间隔，在 HTTP 请求 OpenAPI 时间间隔
         :return:

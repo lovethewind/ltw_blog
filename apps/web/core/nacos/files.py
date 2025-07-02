@@ -1,5 +1,5 @@
-import os.path
 import logging
+import os.path
 import sys
 
 try:
@@ -14,7 +14,7 @@ logger = logging.getLogger("nacos")
 
 def read_file_str(base, key):
     content = read_file(base, key)
-    return content.decode("UTF-8") if type(content) is bytes else content
+    return content.decode("UTF-8") if type(content) == bytes else content
 
 
 def read_file(base, key):
