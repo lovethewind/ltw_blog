@@ -32,8 +32,9 @@ class SearchService:
         page = await self.redis_util.ES.get_article_search_result(article_search_vo)
         if page:
             return page
-        resp = await self.es_util.client.search(index=ESConstant.ARTICLE_INDEX,
-                                                **ESConstant.get_article_search_dsl(article_search_vo))
+        resp = await self.es_util.client.search(
+            index=ESConstant.ARTICLE_INDEX, **ESConstant.get_article_search_dsl(article_search_vo)
+        )
         total, records = 0, []
         if resp["hits"]["hits"]:
             total = resp["hits"]["total"]["value"]
@@ -49,9 +50,9 @@ class SearchService:
                 else:
                     record["content"] = record["content"][:100]
                 records.append(ArticleListDTO.model_validate(record))
-        page = PageResult[ArticleListDTO](records=records, total=total,
-                                          current=article_search_vo.current_page,
-                                          size=article_search_vo.page_size)
+        page = PageResult[ArticleListDTO](
+            records=records, total=total, current=article_search_vo.current_page, size=article_search_vo.page_size
+        )
         await self.redis_util.ES.cache_article_search_result(article_search_vo, page)
         return page
 
@@ -86,8 +87,9 @@ class SearchService:
         page = await self.redis_util.ES.get_recommend_article_list(article_recommend_vo.article_id)
         if page:
             return page
-        resp = await self.es_util.client.search(index=ESConstant.ARTICLE_INDEX,
-                                                **ESConstant.get_recommend_article_dsl(article_recommend_vo))
+        resp = await self.es_util.client.search(
+            index=ESConstant.ARTICLE_INDEX, **ESConstant.get_recommend_article_dsl(article_recommend_vo)
+        )
         total, records = 0, []
         if resp["hits"]["hits"]:
             total = resp["hits"]["total"]["value"]
@@ -104,8 +106,9 @@ class SearchService:
         :return:
         """
         await self.es_util.client.indices.delete(index=ESConstant.ARTICLE_INDEX, ignore_unavailable=True)
-        await self.es_util.client.indices.create(index=ESConstant.ARTICLE_INDEX,
-                                                 mappings=ESConstant.ARTICLE_INDEX_MAPPING)
+        await self.es_util.client.indices.create(
+            index=ESConstant.ARTICLE_INDEX, mappings=ESConstant.ARTICLE_INDEX_MAPPING
+        )
         await self.redis_util.ES.clear_article_search_result()
         current = 1
         q = Article.filter(is_deleted=False)

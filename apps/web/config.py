@@ -2,14 +2,12 @@
 # @Author  : frank
 # @File    : config.py
 # -*- coding:utf-8 _*-
-import multiprocessing
-
 from apps.web.config.server_config import get_server_bind
 
 bind = get_server_bind()  # 指定监听的地址和端口，用于nginx转发
 backlog = 2048  # 服务器中排队等待的最大连接数，建议值64-2048，超过2048时client连接会得到一个error。
 
-workers = multiprocessing.cpu_count() * 2 + 1  # 用于处理工作的进程数，这里使用了文档建议的值
+workers = 2  # 用于处理工作的进程数，这里使用了文档建议的值
 worker_class = "uvicorn.workers.UvicornWorker"  # worker进程的工作方式，有sync、eventlet、gevent、tornado、gthread, 缺省值sync, django使用gthread的方式好一些。
 worker_connections = 1000  # 最大客户端并发数量，默认情况下这个值为1000。此设置将影响gevent和eventlet工作模式
 
