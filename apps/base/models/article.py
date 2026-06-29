@@ -8,6 +8,7 @@ class Article(BaseModel):
     user_id = fields.BigIntField(description="用户id")
     title = fields.CharField(max_length=100, description="标题")
     cover = fields.CharField(max_length=512, description="封面")
+    cover_thumb = fields.CharField(max_length=512, default="", description="封面缩略图")
     category_id = fields.BigIntField(description="分类id")
     tag_list = fields.JSONField(default=[], description="标签id列表")
     attach_list = fields.JSONField(default=[], description="附件列表")

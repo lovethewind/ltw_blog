@@ -19,7 +19,7 @@ class OssService:
         :return:
         """
         user_id = ContextVars.token_user_id.get()
-        signature_result = self.oss_util.get_signature(DirType[get_signature_vo.dir_type.upper()], get_signature_vo.file_name)
+        signature_result = await self.oss_util.get_signature(DirType[get_signature_vo.dir_type.upper()], get_signature_vo.file_name)
         source = Source()
         source.user_id = user_id
         source.url = signature_result.url

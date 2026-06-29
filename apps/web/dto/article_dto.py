@@ -17,6 +17,7 @@ class ArticleListDTO(BaseDTO):
     user_id: int
     title: str
     cover: str
+    cover_thumb: str = ""
     category_id: int
     tag_list: list[int]
     content: str
@@ -37,6 +38,7 @@ class ArticleBaseInfoDTO(BaseDTO):
     user_id: int
     title: str
     cover: str
+    cover_thumb: str = ""
     create_time: datetime.datetime
 
 
@@ -45,6 +47,7 @@ class ArticleDTO(BaseDTO):
     user_id: int
     title: str
     cover: str
+    cover_thumb: str = ""
     category_id: int
     tag_list: list[int]
     attach_list: Optional[list]

@@ -22,8 +22,13 @@ from apps.web.dto.user_dto import UserBaseInfoDTO
 from apps.web.service.source_service import SourceService
 from apps.web.utils.ws_util import manager
 from apps.web.vo.batch_vo import BatchVO
-from apps.web.vo.picture_vo import PictureQueryVO, PictureAddVO, PictureAlbumAddVO, PictureAlbumUpdateVO, \
-    PictureUpdateVO
+from apps.web.vo.picture_vo import (
+    PictureQueryVO,
+    PictureAddVO,
+    PictureAlbumAddVO,
+    PictureAlbumUpdateVO,
+    PictureUpdateVO,
+)
 
 
 @Component()
@@ -71,16 +76,21 @@ class PictureService:
         :return:
         """
         user_id = ContextVars.token_user_id.get()
-        picture_album = await PictureAlbum.filter(~Q(status=CheckStatusEnum.REJECT), id=picture_album_update_vo.id,
-                                                  user_id=user_id).first()
+        picture_album = await PictureAlbum.filter(
+            ~Q(status=CheckStatusEnum.REJECT), id=picture_album_update_vo.id, user_id=user_id
+        ).first()
         if not picture_album:
             raise MyException(ErrorCode.PICTURE_ALBUM_NOT_EXIST)
-        if picture_album.album_type == AlbumTypeEnum.PUBLIC and picture_album_update_vo.album_type == AlbumTypeEnum.PRIVATE:
+        if (
+                picture_album.album_type == AlbumTypeEnum.PUBLIC
+                and picture_album_update_vo.album_type == AlbumTypeEnum.PRIVATE
+        ):
             # 无法公开转私密
             raise MyException(ErrorCode.PICTURE_ALBUM_IS_PUBLIC)
-        await self.source_service.check_and_update_source_status(picture_album.cover, picture_album_update_vo.cover,
-                                                                 user_id)
         update_dict = picture_album_update_vo.model_dump(exclude_none=True)
+        old_cover_urls = {picture_album.cover}
+        new_cover_urls = {update_dict.get("cover", picture_album.cover)}
+        await self.source_service.check_and_update_source_status(old_cover_urls, new_cover_urls, user_id)
         await picture_album.update_from_dict(update_dict)
         await picture_album.save(update_fields=update_dict.keys())
 
@@ -91,17 +101,18 @@ class PictureService:
         :return:
         """
         user_id = ContextVars.token_user_id.get()
-        album = await PictureAlbum.filter(~Q(status=CheckStatusEnum.REJECT),
-                                          album_type=AlbumTypeEnum.PRIVATE,
-                                          id=album_id, user_id=user_id).first()
+        album = await PictureAlbum.filter(
+            ~Q(status=CheckStatusEnum.REJECT), album_type=AlbumTypeEnum.PRIVATE, id=album_id, user_id=user_id
+        ).first()
         if not album:
             raise MyException(ErrorCode.PICTURE_ALBUM_NOT_EXIST)
         q = Picture.filter(album_id=album_id)
         pictures = await q.all()
-        urls = []
+        urls = [album.cover]
         picture_ids = []
         for picture in pictures:
             urls.append(picture.url)
+            urls.append(picture.thumb_url)
             picture_ids.append(picture.id)
         async with in_transaction():
             # 删除图库下的图片和评论
@@ -149,29 +160,35 @@ class PictureService:
         picture = Picture(**picture_add_vo.model_dump(exclude_none=True))
         picture.user_id = user_id
         picture.status = CheckStatusEnum.PASS  # 目前默认无需审核
+        if not picture.thumb_url:
+            picture.thumb_url = picture.url
         await picture.save()
 
     async def update_picture(self, picture_update_vo: PictureUpdateVO):
         """
         更新图片信息
         :param picture_update_vo:
-        :return: 
+        :return:
         """
         user_id = ContextVars.token_user_id.get()
         if picture_update_vo.album_id:
-            is_exists = await PictureAlbum.filter(id=picture_update_vo.album_id, user_id=user_id,
-                                                  status=CheckStatusEnum.PASS).exists()
+            is_exists = await PictureAlbum.filter(
+                id=picture_update_vo.album_id, user_id=user_id, status=CheckStatusEnum.PASS
+            ).exists()
             if not is_exists:
                 raise MyException(ErrorCode.PICTURE_ALBUM_NOT_EXIST)
-        if picture_update_vo.url and not (picture_update_vo.width or
-                                          picture_update_vo.height or
-                                          picture_update_vo.size):
+        if picture_update_vo.url and not (
+                picture_update_vo.width or picture_update_vo.height or picture_update_vo.size
+        ):
             raise MyException(ErrorCode.PARAM_ERROR)
-        picture = await Picture.filter(~Q(status=CheckStatusEnum.REJECT), id=picture_update_vo.id,
-                                       user_id=user_id).first()
+        picture = await Picture.filter(
+            ~Q(status=CheckStatusEnum.REJECT), id=picture_update_vo.id, user_id=user_id
+        ).first()
         if not picture:
             raise MyException(ErrorCode.PICTURE_NOT_EXIST)
-        update_dict = picture_update_vo.model_dump(exclude_none=True)
+        update_dict = picture_update_vo.model_dump(exclude_none=True, exclude={"id"})
+        if "url" in update_dict and not update_dict.get("thumb_url"):
+            update_dict["thumb_url"] = update_dict["url"]
         await picture.update_from_dict(update_dict)
         await picture.save(update_fields=update_dict.keys())
 
@@ -188,6 +205,7 @@ class PictureService:
         picture_ids = []
         for picture in pictures:
             urls.append(picture.url)
+            urls.append(picture.thumb_url)
             picture_ids.append(picture.id)
         async with in_transaction():
             # 删除图片和评论

@@ -25,6 +25,7 @@ class PictureDTO(BaseDTO):
     album_id: int
     description: str
     url: str
+    thumb_url: str = ""
     size: int
     width: int
     height: int

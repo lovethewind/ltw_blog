@@ -5,7 +5,7 @@ from tortoise.expressions import Q
 from tortoise.functions import Count
 from tortoise.transactions import in_transaction
 
-from apps.base.core.depend_inject import Component, Autowired
+from apps.base.core.depend_inject import Autowired, Component
 from apps.base.enum.article import ArticleStatusEnum
 from apps.base.enum.error_code import ErrorCode
 from apps.base.enum.user import UserSettingsEnum
@@ -19,11 +19,11 @@ from apps.web.core.es.constant.es_constant import ESConstant
 from apps.web.core.es.utils.es_util import ESUtil
 from apps.web.dao.article_dao import ArticleDao
 from apps.web.dao.user_dao import UserDao
-from apps.web.dto.article_dto import ArticleDTO, ArticleBaseInfoDTO, ArticleListDTO
+from apps.web.dto.article_dto import ArticleBaseInfoDTO, ArticleDTO, ArticleListDTO
 from apps.web.dto.user_dto import UserBaseInfoDTO, UserSimpleInfoDTO
 from apps.web.service.source_service import SourceService
 from apps.web.utils.ws_util import manager
-from apps.web.vo.article_vo import ArticleQueryVO, OrderTypeEnum, ArticleVO, ArticleUpdateVO, ArticleAddViewCountVO
+from apps.web.vo.article_vo import ArticleAddViewCountVO, ArticleQueryVO, ArticleUpdateVO, ArticleVO, OrderTypeEnum
 from apps.web.vo.batch_vo import BatchVO
 
 
@@ -58,8 +58,9 @@ class ArticleService:
             q = q.filter(user_id=article_query_vo.user_id)
             if article_query_vo.user_id != login_user_id:  # 非本人查询，只返回已发布的文章
                 # 检查对方是否允许查看
-                user_setting_value = await self.user_dao.get_user_setting_value(article_query_vo.user_id,
-                                                                                UserSettingsEnum.ALLOW_VIEW_MY_ARTICLE)
+                user_setting_value = await self.user_dao.get_user_setting_value(
+                    article_query_vo.user_id, UserSettingsEnum.ALLOW_VIEW_MY_ARTICLE
+                )
                 if user_setting_value is False:
                     return PageResult[ArticleListDTO](current=current, size=size, total=0, records=[])
                 q = q.filter(status=ArticleStatusEnum.PUBLISHED)
@@ -83,16 +84,20 @@ class ArticleService:
         page.records = await self.article_dao.get_article_detail_by_ids(articles=page.records)
         return page
 
-    async def add(self, article_vo: ArticleVO):
+    async def add(self, article_vo: ArticleVO) -> int:
         """
         添加文章
-        :param article_vo:
-        :return:
+
+        :param article_vo: 文章新增参数。
+        :return: 新增文章 ID。
         """
         user_id = ContextVars.token_user_id.get()
         article = Article(**article_vo.model_dump())
         article.user_id = user_id
-        article.cover = await self.picture_util.get_random_img_url()
+        if not article.cover:
+            article.cover, article.cover_thumb = await self.picture_util.get_random_cover_urls()
+        if not article.cover_thumb:
+            article.cover_thumb = article.cover
         async with in_transaction():
             await article.save()
             await self._update_article_to_es(article)
@@ -108,30 +113,25 @@ class ArticleService:
         if not article:
             raise MyException(ErrorCode.DATA_NOT_EXISTS)
         # 获取前一篇和后一篇文章
-        (
-            last_article,
-            nex_article,
-            newest_articles
-        ) = await asyncio.gather(
+        last_article, nex_article, newest_articles = await asyncio.gather(
             Article.filter(id__lt=article_id, status=ArticleStatusEnum.PUBLISHED).first(),
             Article.filter(id__gt=article_id, status=ArticleStatusEnum.PUBLISHED).order_by("id").first(),
-            Article.filter(~Q(id=article_id), status=ArticleStatusEnum.PUBLISHED).limit(5)
+            Article.filter(~Q(id=article_id), status=ArticleStatusEnum.PUBLISHED).limit(5),
         )
         # 获取推荐文章单独一个接口
         article_dto = ArticleDTO.model_validate(article, from_attributes=True)
-        article_dto.last_article = ArticleBaseInfoDTO.model_validate(last_article, from_attributes=True)
-        article_dto.next_article = ArticleBaseInfoDTO.model_validate(nex_article, from_attributes=True)
+        if last_article:
+            article_dto.last_article = ArticleBaseInfoDTO.model_validate(last_article, from_attributes=True)
+        if nex_article:
+            article_dto.next_article = ArticleBaseInfoDTO.model_validate(nex_article, from_attributes=True)
         article_dto.newest_article_list = ArticleBaseInfoDTO.bulk_model_validate(newest_articles)
-        (
-            article_dto.view_count,
-            article_dto.like_count,
-            article_dto.collect_count,
-            article_dto.comment_count
-        ) = await asyncio.gather(
-            self.redis_util.Article.get_article_view_count(article_id),
-            self.redis_util.Article.get_article_like_count(article_id),
-            self.redis_util.Article.get_article_collect_count(article_id),
-            self.redis_util.Article.get_article_comment_count(article_id)
+        article_dto.view_count, article_dto.like_count, article_dto.collect_count, article_dto.comment_count = (
+            await asyncio.gather(
+                self.redis_util.Article.get_article_view_count(article_id),
+                self.redis_util.Article.get_article_like_count(article_id),
+                self.redis_util.Article.get_article_collect_count(article_id),
+                self.redis_util.Article.get_article_comment_count(article_id),
+            )
         )
         article_dto.user = await manager.get_user_info(article.user_id, UserBaseInfoDTO)
         return article_dto
@@ -170,7 +170,17 @@ class ArticleService:
         if article.status == ArticleStatusEnum.CHECKING:
             raise MyException(ErrorCode.PARAM_ERROR)
         # 删除旧资源
-        await self.source_service.check_and_update_source_status(article.cover, article_update_vo.cover, user_id)
+        old_cover_urls = {article.cover, article.cover_thumb}
+        new_cover_urls = set()
+        if article_update_vo.cover is not None:
+            new_cover_urls.add(article_update_vo.cover)
+        else:
+            new_cover_urls.add(article.cover)
+        if article_update_vo.cover_thumb is not None:
+            new_cover_urls.add(article_update_vo.cover_thumb)
+        else:
+            new_cover_urls.add(article.cover_thumb)
+        await self.source_service.check_and_update_source_status(old_cover_urls, new_cover_urls, user_id)
         # 删除旧附件
         old_attach_urls = {item.get("url") for item in article.attach_list}
         new_attach_urls = set()
@@ -178,7 +188,9 @@ class ArticleService:
             new_attach_urls = {item.get("url") for item in article_update_vo.attach_list}
         await self.source_service.check_and_update_source_status(old_attach_urls, new_attach_urls, user_id)
         article.edit_time = datetime.now()
-        update_dict = article_update_vo.model_dump(exclude_none=True)
+        update_dict = article_update_vo.model_dump(exclude_none=True, exclude={"id"})
+        if "cover" in update_dict and not update_dict.get("cover_thumb"):
+            update_dict["cover_thumb"] = update_dict["cover"]
         await article.update_from_dict(update_dict)
         async with in_transaction():
             await article.save(update_fields=update_dict.keys())
@@ -200,8 +212,9 @@ class ArticleService:
             q = q.filter(create_time__range=[article_query_vo.date_from, article_query_vo.date_to])
         count_info_list = await q.group_by("status").annotate(count=Count("id")).values("status", "count")
         count_info_dict = {item.get("status"): item.get("count") for item in count_info_list}
-        ret = {key.value: count_info_dict.get(key.value, 0) for key in
-               ArticleStatusEnum.__dict__["_member_map_"].values()}
+        ret = {
+            key.value: count_info_dict.get(key.value, 0) for key in ArticleStatusEnum.__dict__["_member_map_"].values()
+        }
         return ret
 
     async def remove_to_recycle(self, batch_vo: BatchVO):
@@ -241,8 +254,9 @@ class ArticleService:
         :return:
         """
         user_id = ContextVars.token_user_id.get()
-        article = await Article.filter(id__in=batch_vo.ids, user_id=user_id, status=ArticleStatusEnum.DELETED,
-                                       is_deleted=False).first()
+        article = await Article.filter(
+            id__in=batch_vo.ids, user_id=user_id, status=ArticleStatusEnum.DELETED, is_deleted=False
+        ).first()
         if not article:
             return
         article.status = ArticleStatusEnum.DRAFT

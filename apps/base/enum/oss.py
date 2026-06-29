@@ -23,6 +23,7 @@ class DirType(Enum):
     AVATAR = DirTypeItem("media/avatar/", "image/*", 5, 10)
     BACKGROUND = DirTypeItem("media/background/", "image/*", 20, 20)
     COVER = DirTypeItem("media/cover/", "image/*", 10, 20)
+    THUMB = DirTypeItem("media/thumb/", "image/*", 5, 20)
     EMOJI = DirTypeItem("media/emoji/", "image/*", 5, 10)
     IMAGE = DirTypeItem("media/image/", "image/*", 20, 20)
     AUDIO = DirTypeItem("media/audio/", "audio/*", 50, 20)

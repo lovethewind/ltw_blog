@@ -10,6 +10,7 @@ class Picture(BaseModel):
     album_id = fields.BigIntField(description="图册id")
     description = fields.CharField(max_length=200, default='', description="说明")
     url = fields.CharField(max_length=512, description="图片地址")
+    thumb_url = fields.CharField(max_length=512, default="", description="图片缩略图")
     size = fields.IntField(default=0, description="图片大小")
     width = fields.IntField(default=0, description="图片宽度")
     height = fields.IntField(default=0, description="图片高度")

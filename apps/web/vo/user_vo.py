@@ -57,7 +57,6 @@ class UserUpdateVO(BaseVO):
     nickname: Optional[str] = Field(default=None, max_length=20)
     gender: Optional[int] = Field(default=None)
     avatar: Optional[str] = Field(default=None)
-    occupation: Optional[str] = Field(default=None, max_length=20)
     summary: Optional[str] = Field(default=None, max_length=100)
     background: Optional[str] = Field(default=None)
 

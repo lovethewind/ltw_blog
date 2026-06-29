@@ -17,12 +17,10 @@ create table t_user
     register_time   datetime     not null comment '注册时间',
     last_login_time datetime comment '最后登录时间',
     last_login_ip   varchar(20)  not null default '' comment '最后登录IP',
-    occupation      varchar(20)  not null default '' comment '职业(头衔)',
     summary         varchar(100) not null default '' comment '个性签名',
     background      varchar(512) not null default '' comment '个人中心背景图',
     address         varchar(100) not null default '' comment '地址',
     is_official     bool         not null default false comment '是否是官方用户',
-    user_tag        int          not null default 2 comment '用户标签(0:超级管理员 1:管理员 2:普通用户 3:其他)',
     create_time     datetime     not null comment '创建时间',
     update_time     datetime     not null comment '更新时间',
     unique index unique_username (username),
@@ -119,6 +117,7 @@ create table t_article
     user_id      bigint       not null comment '用户id',
     title        varchar(100) not null comment '标题',
     cover        varchar(512) not null comment '封面',
+    cover_thumb  varchar(512) not null default '' comment '封面缩略图',
     category_id  bigint       not null comment '分类id',
     tag_list     json         not null comment '标签列表',
     attach_list  json         not null comment '附件列表',
@@ -163,7 +162,7 @@ create table t_comment
     id             bigint primary key comment '记录id',
     user_id        bigint   not null comment '用户id',
     obj_id         bigint   not null comment '对象id',
-    obj_type       int      not null comment '对象类型 1:文章 2:分享',
+    obj_type       int      not null comment '对象类型 1:文章 5:图片',
     parent_id      bigint   not null default 0 comment '父评论id(0:一级评论)',
     reply_user_id  bigint   not null default 0 comment '回复的评论所属用户id',
     first_level_id bigint   not null default 0 comment '一级评论id(0:一级评论), 便于查询',
@@ -270,6 +269,7 @@ create table t_picture
     album_id    bigint       not null comment '图册id',
     description varchar(200) not null comment '图片描述',
     url         varchar(512) not null comment '图片地址',
+    thumb_url   varchar(512) not null default '' comment '图片缩略图',
     size        int          not null default 0 comment '图片大小',
     width       int          not null default 0 comment '图片宽度',
     height      int          not null default 0 comment '图片高度',
@@ -330,20 +330,6 @@ create table t_source
     update_time datetime     not null comment '更新时间',
     index idx_user_id_url (user_id, url)
 ) comment '资源表';
-
-create table t_share
-(
-    id          bigint primary key comment '记录id',
-    user_id     bigint     not null comment '用户id',
-    content     mediumtext not null comment '内容',
-    share_type  int        not null comment '分享类型 1：笔记 2：生活 3：经验 4：音乐 5：视频 6：资源 7：其他',
-    tag         json       not null comment '标签',
-    detail      json       not null comment '详情',
-    `status`    int        not null default 1 comment '审核状态: 1: 已通过 2:审核中 3:拒绝',
-    create_time datetime   not null comment '创建时间',
-    update_time datetime   not null comment '更新时间',
-    index idx_user_id_status_share_type (user_id, status, share_type)
-) comment '分享表';
 
 create table t_notice
 (

@@ -25,21 +25,28 @@ class KafkaUtil:
     email_util: EmailUtil = Autowired()
     sms_util: SmsUtil = Autowired()
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """
+        初始化 Kafka 工具类。
+
+        :return: None
+        """
         self.client = KafkaAdminClient(bootstrap_servers=self.bootstrap_servers)
         self._create_topics()
         self.producer_started = False
-        self.producer = AIOKafkaProducer(
-            bootstrap_servers=self.bootstrap_servers,
-            value_serializer=lambda v: json.dumps(v).encode('utf-8')
-        )
+        self.producer: AIOKafkaProducer | None = None
         self._consumer_dict: dict[str, AIOKafkaConsumer] = {}
+        self._consumer_task_list: list[asyncio.Task] = []
 
-    def __del__(self):
-        self.producer.stop()
-        self.client.close()
-        for consumer in self._consumer_dict.values():
-            consumer.stop()
+    def __del__(self) -> None:
+        """
+        释放 Kafka 客户端资源。
+
+        :return: None
+        """
+        client = getattr(self, "client", None)
+        if client:
+            client.close()
 
     def _create_topics(self):
         try:
@@ -50,7 +57,15 @@ class KafkaUtil:
         except TopicAlreadyExistsError as e:
             pass
 
-    async def _init_consumer(self, key: str, topic: str, group_id: str):
+    async def _init_consumer(self, key: str, topic: str, group_id: str) -> AIOKafkaConsumer:
+        """
+        初始化 Kafka 消费者。
+
+        :param key: 消费者缓存键
+        :param topic: Kafka topic
+        :param group_id: Kafka 消费组
+        :return: Kafka 消费者实例
+        """
         consumer = AIOKafkaConsumer(
             topic,
             bootstrap_servers=self.bootstrap_servers,
@@ -59,34 +74,107 @@ class KafkaUtil:
             group_id=group_id,
             value_deserializer=lambda x: json.loads(x.decode('utf-8'))
         )
-        await consumer.start()
+        try:
+            await consumer.start()
+        except BaseException:
+            await consumer.stop()
+            raise
         self._consumer_dict[key] = consumer
         return consumer
 
-    async def send_message(self, topic: str, message: Any):
+    async def send_message(self, topic: str, message: Any) -> None:
+        """
+        发送 Kafka 消息。
+
+        :param topic: Kafka topic
+        :param message: 消息内容
+        :return: None
+        """
+        if not self.producer:
+            self.producer = AIOKafkaProducer(
+                bootstrap_servers=self.bootstrap_servers,
+                value_serializer=lambda v: json.dumps(v).encode('utf-8')
+            )
         if not self.producer_started:
             await self.producer.start()
             self.producer_started = True
         await self.producer.send(topic, message)
 
-    async def _consume_messages(self, topic: str, group_id: str, callback: Callable[Coroutine]):
+    async def _consume_messages(self, topic: str, group_id: str, callback: Callable[Coroutine]) -> None:
+        """
+        持续消费指定 topic 的消息。
+
+        :param topic: Kafka topic
+        :param group_id: Kafka 消费组
+        :param callback: 消息处理回调函数
+        :return: None
+        """
         key = f"{topic}:{group_id}"
         consumer = self._consumer_dict.get(key)
         if not consumer:
             consumer = await self._init_consumer(key, topic, group_id)
-        async for message in consumer:
-            logger.info(f"======consume_messages: {message.value}======")
-            asyncio.create_task(callback(message.value))
+        try:
+            async for message in consumer:
+                logger.info(f"======consume_messages: {message.value}======")
+                asyncio.create_task(callback(message.value))
+        finally:
+            consumer = self._consumer_dict.pop(key, None)
+            if consumer:
+                await consumer.stop()
 
-    def start_consumer(self):
+    async def start_consumer(self) -> None:
+        """
+        启动 Kafka 消费者任务。
+
+        :return: None
+        """
+        if self._consumer_task_list:
+            return
         logger.info(f"========kafka: start_consumer...========")
-        loop = asyncio.get_event_loop()
-        loop.create_task(self._consume_messages(KafkaConfig.SEND_MAIL_TOPIC, KafkaConfig.SEND_MAIL_GROUP,
-                                                self.email_util.send_email))
-        loop.create_task(self._consume_messages(KafkaConfig.SEND_SMS_TOPIC, KafkaConfig.SEND_SMS_GROUP,
-                                                self.sms_util.send_sms))
-        loop.create_task(self._consume_messages(KafkaConfig.SEND_NOTICE_TOPIC, KafkaConfig.SEND_NOTICE_GROUP,
-                                                AsyncTask.send_notice))
+        loop = asyncio.get_running_loop()
+        await self._init_consumer(
+            f"{KafkaConfig.SEND_MAIL_TOPIC}:{KafkaConfig.SEND_MAIL_GROUP}",
+            KafkaConfig.SEND_MAIL_TOPIC,
+            KafkaConfig.SEND_MAIL_GROUP,
+        )
+        await self._init_consumer(
+            f"{KafkaConfig.SEND_SMS_TOPIC}:{KafkaConfig.SEND_SMS_GROUP}",
+            KafkaConfig.SEND_SMS_TOPIC,
+            KafkaConfig.SEND_SMS_GROUP,
+        )
+        await self._init_consumer(
+            f"{KafkaConfig.SEND_NOTICE_TOPIC}:{KafkaConfig.SEND_NOTICE_GROUP}",
+            KafkaConfig.SEND_NOTICE_TOPIC,
+            KafkaConfig.SEND_NOTICE_GROUP,
+        )
+        self._consumer_task_list.extend([
+            loop.create_task(self._consume_messages(KafkaConfig.SEND_MAIL_TOPIC, KafkaConfig.SEND_MAIL_GROUP,
+                                                    self.email_util.send_email)),
+            loop.create_task(self._consume_messages(KafkaConfig.SEND_SMS_TOPIC, KafkaConfig.SEND_SMS_GROUP,
+                                                    self.sms_util.send_sms)),
+            loop.create_task(self._consume_messages(KafkaConfig.SEND_NOTICE_TOPIC, KafkaConfig.SEND_NOTICE_GROUP,
+                                                    AsyncTask.send_notice)),
+        ])
+
+    async def stop(self) -> None:
+        """
+        停止 Kafka 消费者和生产者。
+
+        :return: None
+        """
+        for task in self._consumer_task_list:
+            task.cancel()
+        if self._consumer_task_list:
+            await asyncio.gather(*self._consumer_task_list, return_exceptions=True)
+            self._consumer_task_list.clear()
+        for consumer in list(self._consumer_dict.values()):
+            await consumer.stop()
+        self._consumer_dict.clear()
+        if self.producer:
+            await self.producer.stop()
+            self.producer = None
+            self.producer_started = False
+        self.client.close()
 
     async def send_email(self, to: str, subject: str, content: Any):
         await self.send_message(KafkaConfig.SEND_MAIL_TOPIC, {"to": to, "subject": subject, "content": content})

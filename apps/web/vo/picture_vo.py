@@ -17,6 +17,7 @@ class PictureQueryVO(BaseVO):
 class PictureAddVO(BaseVO):
     album_id: int
     url: str
+    thumb_url: Optional[str] = Field(default="")
     description: Optional[str] = Field(default="")
     width: int
     height: int
@@ -27,6 +28,7 @@ class PictureUpdateVO(BaseVO):
     id: int
     album_id: Optional[int] = None
     url: Optional[str] = None
+    thumb_url: Optional[str] = None
     description: Optional[str] = None
     width: Optional[int] = None
     height: Optional[int] = None

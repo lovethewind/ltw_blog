@@ -7,7 +7,7 @@ from tortoise import transactions
 from tortoise.functions import Count
 
 from apps.base.constant.common_constant import CommonConstant
-from apps.base.core.depend_inject import Component, Autowired
+from apps.base.core.depend_inject import Autowired, Component
 from apps.base.enum.action import ObjectTypeEnum
 from apps.base.enum.comment import CommentStatusEnum
 from apps.base.enum.notice import NoticeTypeEnum
@@ -21,14 +21,13 @@ from apps.web.core.kafka.util import KafkaUtil
 from apps.web.dao.article_dao import ArticleDao
 from apps.web.dao.common_dao import CommonDao
 from apps.web.dao.picture_dao import PictureDao
-from apps.web.dao.share_dao import ShareDao
 from apps.web.dao.user_dao import UserDao
 from apps.web.dto.chat_dto import WSMessageDTO
 from apps.web.dto.comment_dto import CommentDTO
 from apps.web.dto.notice_dto import NoticeSaveDTO
 from apps.web.dto.user_dto import UserBaseInfoDTO
 from apps.web.utils.ws_util import manager
-from apps.web.vo.comment_vo import CommentQueryVO, CommentAddVO
+from apps.web.vo.comment_vo import CommentAddVO, CommentQueryVO
 
 
 @Component()
@@ -37,7 +36,6 @@ class CommentService:
     user_dao: UserDao = Autowired()
     picture_dao: PictureDao = Autowired()
     article_dao: ArticleDao = Autowired()
-    share_dao: ShareDao = Autowired()
     redis_util: RedisUtil = Autowired()
     kafka_util: KafkaUtil = Autowired()
 
@@ -51,16 +49,13 @@ class CommentService:
         """
         user_id = ContextVars.token_user_id.get()
         # 第一层级评论
-        q = Comment.filter(obj_id=comment_query_vo.obj_id, obj_type=comment_query_vo.obj_type,
-                           status=CommentStatusEnum.PASS)
-        (
-            total,
-            first_level_comment_count,
-            first_level_comments
-        ) = await asyncio.gather(
+        q = Comment.filter(
+            obj_id=comment_query_vo.obj_id, obj_type=comment_query_vo.obj_type, status=CommentStatusEnum.PASS
+        )
+        total, first_level_comment_count, first_level_comments = await asyncio.gather(
             q.count(),
             q.filter(first_level_id=CommonConstant.TOP_LEVEL).count(),
-            q.filter(first_level_id=CommonConstant.TOP_LEVEL).offset((current - 1) * size).limit(size)
+            q.filter(first_level_id=CommonConstant.TOP_LEVEL).offset((current - 1) * size).limit(size),
         )
         first_level_comments = CommentDTO.bulk_model_validate(first_level_comments)
         comment_ids = []
@@ -69,8 +64,10 @@ class CommentService:
         children_comments = []
         if comment_ids:
             # 查出每条第一级评论的二级评论，默认前3条
-            children_comments = await self.common_dao.execute_sql(SqlConstant.FIRST_LEVEL_COMMENT_3_CHILDREN_COMMENT, (
-                comment_query_vo.obj_id, comment_query_vo.obj_type.value, comment_ids, CommentStatusEnum.PASS.value))
+            children_comments = await self.common_dao.execute_sql(
+                SqlConstant.FIRST_LEVEL_COMMENT_3_CHILDREN_COMMENT,
+                (comment_query_vo.obj_id, comment_query_vo.obj_type.value, comment_ids, CommentStatusEnum.PASS.value),
+            )
         children_comments_dict: dict[int, list[CommentDTO]] = {}
         for comment in children_comments:
             dto = CommentDTO.model_validate(comment, from_attributes=True)
@@ -78,10 +75,12 @@ class CommentService:
                 children_comments_dict[dto.first_level_id] = []
             children_comments_dict[dto.first_level_id].append(dto)
         # 查询所有一级评论子评论数量
-        children_comments_count = (await Comment.filter(first_level_id__in=comment_ids, status=CommentStatusEnum.PASS)
-                                   .annotate(count=Count("id"))
-                                   .group_by("first_level_id")
-                                   .values("count", "first_level_id"))
+        children_comments_count = (
+            await Comment.filter(first_level_id__in=comment_ids, status=CommentStatusEnum.PASS)
+            .annotate(count=Count("id"))
+            .group_by("first_level_id")
+            .values("count", "first_level_id")
+        )
         children_comments_count_dict = {item["first_level_id"]: item["count"] for item in children_comments_count}
         # 查询出所有评论所属用户及回复的评论所属用户，供页面显示回复@xxx
         for comment in first_level_comments:
@@ -163,11 +162,6 @@ class CommentService:
             notice_dto.detail.obj_content = picture.url
             notice_dto.user_id = picture.user_id
             notice_dto.title = "评论了你的图片"
-        elif comment_add_vo.obj_type == ObjectTypeEnum.SHARE:
-            share = await self.share_dao.get_share(comment_add_vo.obj_id)
-            notice_dto.detail.obj_content = share.content
-            notice_dto.user_id = share.user_id
-            notice_dto.title = "评论了你的分享"
         if comment_add_vo.parent_id == CommonConstant.TOP_LEVEL:
             notice_dto.notice_type = NoticeTypeEnum.COMMENT
         else:

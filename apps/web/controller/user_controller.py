@@ -1,14 +1,23 @@
 from fastapi import Body
 from fastapi.routing import APIRouter
 
+from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.enum.user import WechatCodeTypeEnum
 from apps.base.utils.decorator_util import avoid_repeat_submit
 from apps.base.utils.response_util import ResponseUtil
-from apps.base.core.depend_inject import Autowired, Controller
 from apps.web.dto.user_dto import UserSettingsType
 from apps.web.service.user_service import UserService
-from apps.web.vo.user_vo import LoginVO, RegisterVO, ChangePasswordVO, UserUpdateVO, WechatBindParamsVO, \
-    ForgetPasswordVO, ChangeEmailBindVO, ChangeMobileBindVO, AddUserViewCountVO
+from apps.web.vo.user_vo import (
+    AddUserViewCountVO,
+    ChangeEmailBindVO,
+    ChangeMobileBindVO,
+    ChangePasswordVO,
+    ForgetPasswordVO,
+    LoginVO,
+    RegisterVO,
+    UserUpdateVO,
+    WechatBindParamsVO,
+)
 
 router = APIRouter(prefix="/user", tags=["用户信息"])
 

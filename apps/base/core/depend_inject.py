@@ -1,13 +1,15 @@
 import logging
 import os
 import threading
+from pathlib import Path
 from typing import Type, get_type_hints
 
 import yaml
-from fastapi import APIRouter
 from dependency_injector import containers, providers
 from dependency_injector.errors import Error
 from dependency_injector.providers import BaseSingleton
+from dotenv import load_dotenv
+from fastapi import APIRouter
 
 from .cbv import cbv
 from ..utils.path_util import PathUtil
@@ -19,6 +21,7 @@ class Container(containers.DynamicContainer):
     """
     依赖注入容器
     """
+
     config = providers.Configuration()  # 获取的配置
     refresh_scope = providers.Dict()  # 需要刷新的组件
     rv_dependent_dict = providers.Dict()  # 反向依赖查询使用
@@ -31,10 +34,14 @@ class ContainerUtil[T]:
     """
     依赖注入工具类
     """
+
     ENV_VAR = {
         "APP_ACTIVE": "app.active",
-        "APP_CONTEXT_PATH": "app.context-path"
+        "APP_CONTEXT_PATH": "app.context-path",
+        "NACOS_USERNAME": "nacos.username",
+        "NACOS_PASSWORD": "nacos.password",
     }
+    ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
     NULL = object()
     _condition = threading.Condition()
     _lock = threading.Lock()
@@ -61,10 +68,15 @@ class ContainerUtil[T]:
         cls._init_config_from_server(server_config_class_name)
 
     @classmethod
-    def _override_config_from_env(cls):
+    def _override_config_from_env(cls) -> None:
         """
-        从环境变量覆盖文件配置
+        加载根目录 .env，并使用环境变量覆盖文件配置。
+
+        系统环境变量优先级高于 .env 中的同名配置。
+
+        :return: None。
         """
+        load_dotenv(cls.ENV_FILE, override=False)
         for key, value in cls.ENV_VAR.items():
             env_value = os.environ.get(key, cls.NULL)
             if env_value is not cls.NULL:

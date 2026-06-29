@@ -13,7 +13,7 @@ class Comment(BaseModel):
     user_id = fields.BigIntField(description="评论用户id")
     obj_id = fields.BigIntField(description="评论对象id")
     obj_type = fields.IntEnumField(ObjectTypeEnum, default=ObjectTypeEnum.ARTICLE,
-                                   description="评论对象类型 1:文章 2:分享")
+                                   description="评论对象类型 1:文章 5:图片")
     parent_id = fields.BigIntField(description="父id", default=CommonConstant.TOP_LEVEL)
     reply_user_id = fields.BigIntField(description="回复的评论所属用户id, 便于查询组装结果",
                                        default=CommonConstant.TOP_LEVEL)

@@ -23,12 +23,10 @@ class UserInfoDTO(BaseDTO):
     email: Optional[str]
     mobile: Optional[str]
     wechat: Optional[str]
-    occupation: str
     summary: str
     background: str
     address: str
     user_restriction: UserRestrictionDTO
-    user_tag: int
     # 喜欢文章id列表
     article_like_set: list[int] = Field(default=[])
     # 点赞文章id列表
@@ -44,7 +42,6 @@ class UserCommonInfoDTO(BaseDTO):
     nickname: str
     gender: int
     avatar: str
-    occupation: str
     summary: str
     background: str
     address: str

@@ -1,11 +1,10 @@
 import datetime
 import os
 import uuid
-from typing import Type
 from urllib.parse import quote_plus
 
-import oss2
-from oss2 import Auth, AuthV4
+import alibabacloud_oss_v2 as oss
+import alibabacloud_oss_v2.aio as oss_aio
 
 from apps.base.core.depend_inject import Component, Value, RefreshScope, logger
 from apps.base.enum.error_code import ErrorCode
@@ -16,8 +15,9 @@ from apps.web.dto.oss_dto import SignatureResultDTO
 
 class UploadConfigInfo:
 
-    def __init__(self, content_type: str, max_size: int, expire_seconds: int, old_filename: str, filename: str,
-                 key: str):
+    def __init__(
+            self, content_type: str, max_size: int, expire_seconds: int, old_filename: str, filename: str, key: str
+    ):
         self.content_type = content_type
         self.max_size = max_size
         self.expire_seconds = expire_seconds
@@ -36,19 +36,34 @@ class OssUtil:
     cdn_domain: str = Value("aliyun.oss.cdn-domain")
     bucket_name: str = Value("aliyun.oss.bucket")
     use_cdn_domain: bool = Value("aliyun.oss.use-cdn-domain")
+    https: bool = Value("aliyun.oss.https")
 
-    def __init__(self):
-        auth: Auth | AuthV4 = oss2.AuthV4(self.access_key, self.secret_key)
-        # 创建Bucket对象，所有Object相关的接口都可以通过Bucket对象来进行
-        self.bucket = oss2.Bucket(auth, endpoint=self.endpoint, bucket_name=self.bucket_name, region=self.region)
+    def __init__(self) -> None:
+        """
+        初始化 OSS V2 客户端。
 
-    def upload_file(self, file: bytes, name: str, dir_type: DirType = DirType.IMAGE):
+        :return: None
+        """
+        credentials_provider = oss.credentials.StaticCredentialsProvider(self.access_key, self.secret_key)
+        config = oss.Config(
+            region=self.region,
+            endpoint=self.endpoint,
+            signature_version="v4",
+            credentials_provider=credentials_provider,
+            disable_upload_crc64_check=True,
+        )
+        self.client = oss_aio.AsyncClient(config)
+        self.presign_client = oss.Client(config)
+
+    async def upload_file(self, file: bytes, name: str, dir_type: DirType = DirType.IMAGE) -> str | None:
         """
         上传文件
+
         :param file: 文件
         :param name: 文件名
         :param dir_type: 文件类型
-        :return:
+        :return: 上传后的文件访问地址，上传失败时返回 None
+        :raises MyException: 文件或文件名为空时抛出参数错误
         """
 
         if not file or not name:
@@ -56,15 +71,24 @@ class OssUtil:
         upload_config_info = self._get_info(dir_type, name)
         key = upload_config_info.key
         try:
-            ret = self.bucket.put_object(key, file)
-            logger.info(f"上传文件结果: 文件名[{key}], code[{ret.status}], resp[{ret.resp}]")
-            return f"{self.get_cname()}/{key}"
+            ret = await self.client.put_object(
+                oss.PutObjectRequest(
+                    bucket=self.bucket_name,
+                    key=key,
+                    body=file,
+                    content_type=upload_config_info.content_type,
+                    forbid_overwrite=True,
+                )
+            )
+            logger.info(f"上传文件结果: 文件名[{key}], etag[{ret.etag}], hash_crc64[{ret.hash_crc64}]")
+            return self.get_url(key)
         except Exception as e:
-            logger.error("上传文件失败", e)
+            logger.exception(f"上传文件失败: {e}")
 
-    def get_signature(self, dir_type: Type[DirType], file_name: str) -> SignatureResultDTO:
+    async def get_signature(self, dir_type: DirType, file_name: str) -> SignatureResultDTO:
         """
         获取上传文件签名
+
         :param dir_type: 前端传来的数据
         :param file_name: 前端传来的数据
         :return: 返回文件上传路径、contentType等
@@ -73,24 +97,32 @@ class OssUtil:
         try:
             key = upload_config_info.key
             content_disposition = f"attachment; filename*=utf-8''{quote_plus(upload_config_info.old_filename)}"
-            headers = {
-                "content-type": upload_config_info.content_type,
-                "content-disposition": content_disposition,
-                "x-oss-forbid-overwrite": "true"
-            }
-            upload_url = self.bucket.sign_url("PUT", key, upload_config_info.expire_seconds,
-                                              headers=headers,
-                                              slash_safe=True)
-            url = upload_url.split("?", 1)[0]
-            signature_result = SignatureResultDTO(upload_url=upload_url,
-                                                  url=url,
-                                                  content_disposition=content_disposition,
-                                                  content_type=upload_config_info.content_type)
+            result = self.presign_client.presign(
+                oss.PutObjectRequest(
+                    bucket=self.bucket_name,
+                    key=key,
+                    content_type=upload_config_info.content_type,
+                    content_disposition=content_disposition,
+                    forbid_overwrite=True,
+                ),
+                expires=datetime.timedelta(seconds=upload_config_info.expire_seconds),
+            )
+            upload_url = result.url
+            if not upload_url:
+                raise MyException(ErrorCode.SERVICE_ERROR)
+            signature_result = SignatureResultDTO(
+                upload_url=upload_url,
+                url=self.get_url(key),
+                content_disposition=content_disposition,
+                content_type=upload_config_info.content_type,
+                signed_headers=dict(result.signed_headers or {}),
+            )
             return signature_result
         except Exception as e:
             logger.error(f"获取签名失败: {e}")
+            raise MyException(ErrorCode.SERVICE_ERROR)
 
-    def _get_info(self, dir_type: Type[DirType], file_name: str) -> UploadConfigInfo:
+    def _get_info(self, dir_type: DirType, file_name: str) -> UploadConfigInfo:
         """
         根据前端传来的数据进行处理
         :param dir_type:
@@ -104,18 +136,35 @@ class OssUtil:
         new_filename = uuid.uuid4().hex + suffix
         date = datetime.datetime.now().strftime("%Y%m%d")
         new_file_path = os.path.join(dir_type.dir, date, new_filename)
-        ret = UploadConfigInfo(dir_type.content_type,
-                               dir_type.max_size,
-                               dir_type.expire_seconds,
-                               filename,
-                               new_filename,
-                               new_file_path)
+        ret = UploadConfigInfo(
+            dir_type.content_type, dir_type.max_size, dir_type.expire_seconds, filename, new_filename, new_file_path
+        )
         return ret
 
-    def get_host(self):
+    def get_url(self, key: str) -> str:
+        """
+        生成外部访问用的完整 OSS 文件地址。
+
+        :param key: OSS 对象 key。
+        :return: 完整资源访问地址。
+        """
+        return f"{self.get_cname()}/{key.lstrip('/')}"
+
+    def get_host(self) -> str:
+        """
+        获取 OSS bucket 默认访问域名。
+
+        :return: OSS bucket 默认访问域名。
+        """
         return "https://" + self.bucket_name + "." + self.endpoint
 
-    def get_cname(self):
+    def get_cname(self) -> str:
+        """
+        获取 OSS 资源访问域名，优先使用 CDN 域名。
+
+        :return: OSS 资源访问域名。
+        """
         if self.use_cdn_domain:
-            return "https://" + self.cdn_domain
+            prefix = "https" if self.https else "http"
+            return f"{prefix}://{self.cdn_domain}"
         return self.get_host()

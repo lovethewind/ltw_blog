@@ -2,39 +2,44 @@ import importlib
 import json
 import pkgutil
 import time
+from contextlib import asynccontextmanager
 from json import JSONDecodeError
+from typing import AsyncGenerator, Optional
 
-from fastapi import FastAPI, APIRouter
-from fastapi.exceptions import RequestValidationError
+from fastapi import APIRouter, FastAPI
 from fastapi.concurrency import iterate_in_threadpool
+from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
 from tortoise.contrib.fastapi import register_tortoise
 
+from apps.base.core.depend_inject import GetBean, GetValue
+from apps.base.enum.error_code import ErrorCode
 from apps.base.exception.my_exception import MyException
 from apps.base.utils.response_util import ResponseUtil
-from apps.base.enum.error_code import ErrorCode
-from apps.base.core.depend_inject import ContainerUtil, GetValue, GetBean
 from apps.web.config.logger_config import logger
-from apps.web.config.nacos_config import NacosConfig
+from apps.web.config.server_config import init_container_config
 from apps.web.core.context_vars import ContextVars
 from apps.web.core.kafka.util import KafkaUtil
 from apps.web.utils.depends_util import DependsUtil
-from apps.web.utils.path_util import PathUtil
 
 # 先初始化容器配置
-ContainerUtil.init(resource_dir=PathUtil.RESOURCE_PATH, server_config_class=NacosConfig)
+init_container_config()
 
 
 class CreateApp:
 
-    def __init__(self, testing: bool = False,
-                 router_scan: list[str] = None,
-                 *args, **kwargs):
+    def __init__(
+        self,
+        testing: bool = False,
+        router_scan: Optional[list[str]] = None,
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
-        self.app = FastAPI(*args, **kwargs)
+        self.app = FastAPI(*args, lifespan=self._lifespan, **kwargs)
         self.testing = self.app.testing = testing
         self.router_scan = router_scan or []
 
@@ -43,14 +48,29 @@ class CreateApp:
         self._register_router()
         self._add_exception_handler()
         self._add_middleware()
-        self._kafka_start_consumer()
         return self.app
 
-    def _kafka_start_consumer(self):
-        kafka_util = GetBean(KafkaUtil)
-        kafka_util.start_consumer()
+    @asynccontextmanager
+    async def _lifespan(self, app: FastAPI) -> AsyncGenerator[None, None]:
+        """
+        管理 FastAPI 生命周期。
 
-    def _db_init(self, tortoise_config: dict = GetValue("app.db.tortoise"), testing_config: dict = GetValue("app.db.test-tortoise")):
+        :param app: FastAPI 应用实例
+        :return: 生命周期异步生成器
+        """
+        kafka_util = GetBean(KafkaUtil)
+        await kafka_util.start_consumer()
+        try:
+            yield
+        finally:
+            kafka_util = GetBean(KafkaUtil)
+            await kafka_util.stop()
+
+    def _db_init(
+        self,
+        tortoise_config: dict = GetValue("app.db.tortoise"),
+        testing_config: dict = GetValue("app.db.test-tortoise"),
+    ):
         """
         初始化数据库连接
         """
@@ -135,7 +155,7 @@ class HttpLogMiddleware(BaseHTTPMiddleware):
         else:
             try:
                 request_data = json.dumps(json.loads(request_body), ensure_ascii=False)
-            except (JSONDecodeError, UnicodeDecodeError):
+            except JSONDecodeError, UnicodeDecodeError:
                 request_data = await request.form()
                 if not request_data:
                     request_data = "-"
@@ -146,13 +166,15 @@ class HttpLogMiddleware(BaseHTTPMiddleware):
         else:
             try:
                 response_data = json.dumps(json.loads(response_body), ensure_ascii=False)
-            except (JSONDecodeError, UnicodeDecodeError):
+            except JSONDecodeError, UnicodeDecodeError:
                 response_data = response_body or "-"
         request_data = request_data[:500]
         response_data = response_data[:500]
         process_time = time.time() - start_time
-        logger.info(f"[{request.client.host}|{response.status_code}|{request.method}|{request.scope['path']}|"
-                    f"{request_data}|{response_data}|耗时:{process_time}]")
+        logger.info(
+            f"[{request.client.host}|{response.status_code}|{request.method}|{request.scope['path']}|"
+            f"{request_data}|{response_data}|耗时:{process_time}]"
+        )
         return response
 
     async def set_request_body(self, request: Request):
@@ -189,10 +211,9 @@ class WhiteListMiddleware(BaseHTTPMiddleware):
     """
     白名单中间件
     """
+
     cache_whitelist = {}
-    base_whitelist = [
-        "/openapi.json"
-    ]
+    base_whitelist = ["/openapi.json"]
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         whitelist: list[str] = GetValue("app.whitelist") + self.base_whitelist
@@ -226,6 +247,6 @@ class WhiteListMiddleware(BaseHTTPMiddleware):
         return False
 
 
-def create_app(testing=False, router_scan: list[str] = None, *args, **kwargs):
+def create_app(testing=False, router_scan: Optional[list[str]] = None, *args, **kwargs):
     router_scan = router_scan or ["apps.web.controller.*"]
     return CreateApp(testing=testing, router_scan=router_scan, *args, **kwargs).init()

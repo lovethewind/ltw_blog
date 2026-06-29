@@ -2,12 +2,13 @@ app:
   active: dev
   context-path: /api
   name: ltw-web-py
+  server:
+    host: 0.0.0.0
+    port: 8001
 
 
 nacos:
   server-addr: nacos:8848
   namespace: 852dbf3f-4f74-4835-96bf-48e10e5dcc31
-  username: nacos
-  password: nacos
   group: dev
   file-extension: yaml

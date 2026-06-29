@@ -7,13 +7,6 @@ class GenderEnum(IntEnum):
     FEMALE = 2
 
 
-class UserTagEnum(IntEnum):
-    SUPER_ADMIN = 0
-    ADMIN = 1
-    NORMAL_USER = 2
-    OTHER = 3
-
-
 class MenuTypeEnum(IntEnum):
     CATALOG = 0
     MENU = 1

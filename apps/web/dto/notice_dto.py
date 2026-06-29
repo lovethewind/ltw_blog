@@ -14,7 +14,7 @@ class NoticeDetailDTO(BaseDTO):
     from_user_id: Optional[int] = None
     from_user: Optional[UserSimpleInfoDTO] = None
     obj_id: Optional[int] = None
-    obj_content: Optional[str] = None  # 文章为标题，图片为url，分享为内容
+    obj_content: Optional[str] = None  # 文章为标题，图片为url
     obj_type: Optional[ObjectTypeEnum] = None
     comment_type: Optional[ObjectTypeEnum] = None  # 评论主题类型(点赞评论使用)
     comment_id: Optional[int] = None  # 回复的评论id

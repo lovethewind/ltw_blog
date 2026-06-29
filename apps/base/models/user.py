@@ -1,6 +1,6 @@
 from tortoise import fields
 
-from apps.base.enum.user import GenderEnum, UserTagEnum, MenuTypeEnum, UserRestrictionTypeEnum, UserSettingsEnum
+from apps.base.enum.user import GenderEnum, MenuTypeEnum, UserRestrictionTypeEnum, UserSettingsEnum
 from apps.base.models.base import BaseModel
 
 
@@ -17,14 +17,10 @@ class User(BaseModel):
     register_time = fields.DatetimeField(auto_now_add=True, description="注册时间")
     last_login_time = fields.DatetimeField(null=True, description="最后登录时间")
     last_login_ip = fields.CharField(max_length=20, null=True, description="最后登录IP")
-    occupation = fields.CharField(max_length=20, null=True, description="职业(头衔)")
     summary = fields.CharField(max_length=100, null=True, description="个性签名")
     background = fields.CharField(max_length=512, null=True, description="个人中心背景图")
     address = fields.CharField(max_length=100, null=True, description="地址")
     is_official = fields.BooleanField(default=False, description="是否是官方用户")
-    user_tag = fields.IntEnumField(UserTagEnum, default=UserTagEnum.NORMAL_USER.value,
-                                   description="用户标签(0:超级管理员 1:管理员 2:普通用户 3:其他)")
-
     class Meta:
         table = "t_user"
         table_description = "用户表"

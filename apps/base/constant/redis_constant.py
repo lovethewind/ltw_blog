@@ -42,10 +42,6 @@ class RedisConstant:
     PICTURE_LIKE_COUNT_MAP_KEY = "picture_like_count_map"
     PICTURE_LIKE_COUNT_ZSET_KEY = "picture_like_count_zset"
 
-    # 分享点赞
-    USER_LIKE_SHARE_SET_KEY = "user_like_share_set"
-    SHARE_LIKE_COUNT_MAP_KEY = "share_like_count_map"
-
     # ES相关
     HOT_KEYWORDS_SEARCH_KEY = "hot_keywords_search"
     RECOMMEND_ARTICLE_SEARCH_KEY = "recommend_article_search"

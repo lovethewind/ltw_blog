@@ -42,6 +42,7 @@ class ArticleQueryVO(BaseVO):
 class ArticleVO(BaseVO):
     title: str = Field(min_length=1, max_length=100)
     cover: Optional[str] = Field(default=None, max_length=512)
+    cover_thumb: Optional[str] = Field(default="", max_length=512)
     category_id: int
     tag_list: Optional[list[int]] = Field(default=[])
     attach_list: Optional[list[dict]] = Field(default=[])
@@ -60,6 +61,7 @@ class ArticleUpdateVO(BaseVO):
     id: int
     title: Optional[str] = Field(default=None, min_length=1, max_length=100)
     cover: Optional[str] = Field(default=None, max_length=512)
+    cover_thumb: Optional[str] = Field(default=None, max_length=512)
     category_id: Optional[int] = Field(default=None)
     tag_list: Optional[list[int]] = Field(default=None)
     attach_list: Optional[list[dict]] = Field(default=None)

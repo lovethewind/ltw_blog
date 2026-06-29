@@ -1,3 +1,4 @@
+import asyncio
 import sys
 from pathlib import Path
 
@@ -9,7 +10,20 @@ if module_path not in sys.path:
     sys.path.append(str(module_path))
 
 from apps.web.core.create_app import create_app
+from apps.web.config.server_config import get_server_host, get_server_port
 
-if __name__ == '__main__':
-    app = create_app()
-    uvicorn.run(app)
+
+async def main():
+    config = uvicorn.Config(
+        create_app,
+        host=get_server_host(),
+        port=get_server_port(),
+        log_level="info",
+        factory=True,
+    )
+    server = uvicorn.Server(config)
+    await server.serve()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

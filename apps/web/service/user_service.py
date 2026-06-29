@@ -1,6 +1,5 @@
 import asyncio
 import datetime
-from ipaddress import ip_address
 
 import pytz
 from starlette.requests import Request
@@ -8,12 +7,13 @@ from tortoise import transactions
 from tortoise.expressions import Q
 
 from apps.base.constant.email_constant import EmailConstant
+from apps.base.core.depend_inject import Autowired, Component, RefreshScope, Value
 from apps.base.enum.article import ArticleStatusEnum
 from apps.base.enum.comment import CommentStatusEnum
 from apps.base.enum.common import VerifyCodeTypeEnum
 from apps.base.enum.error_code import ErrorCode
 from apps.base.enum.notice import NoticeTypeEnum
-from apps.base.enum.user import UserTagEnum, GenderEnum, UserRestrictionTypeEnum, WechatCodeTypeEnum
+from apps.base.enum.user import GenderEnum, UserRestrictionTypeEnum, WechatCodeTypeEnum
 from apps.base.exception.my_exception import MyException
 from apps.base.models.article import Article
 from apps.base.models.comment import Comment
@@ -24,7 +24,6 @@ from apps.base.utils.ip_util import IpUtil
 from apps.base.utils.picture_util import PictureUtil
 from apps.base.utils.random_util import RandomUtil
 from apps.base.utils.redis_util import RedisUtil
-from apps.base.core.depend_inject import Component, Autowired, logger, Value, RefreshScope
 from apps.base.utils.wechat_util import WechatUtil
 from apps.web.core.context_vars import ContextVars
 from apps.web.core.event.event_name import EventName
@@ -34,13 +33,29 @@ from apps.web.dao.chat_dao import ChatDao
 from apps.web.dao.user_dao import UserDao
 from apps.web.dto.chat_dto import WSMessageDTO
 from apps.web.dto.notice_dto import NoticeSaveDTO
-
-from apps.web.dto.user_dto import UserInfoDTO, UserCommonInfoDTO, UserRestrictionDTO, WechatScanResultDTO, \
-    UserBaseInfoDTO, WechatScanResultEnum, UserSettingsType
+from apps.web.dto.user_dto import (
+    UserBaseInfoDTO,
+    UserCommonInfoDTO,
+    UserInfoDTO,
+    UserRestrictionDTO,
+    UserSettingsType,
+    WechatScanResultDTO,
+    WechatScanResultEnum,
+)
 from apps.web.utils.token_util import TokenUtil
 from apps.web.utils.ws_util import manager
-from apps.web.vo.user_vo import LoginVO, RegisterVO, ChangePasswordVO, ChangePasswordTypeEnum, UserUpdateVO, \
-    WechatBindParamsVO, ForgetPasswordVO, ChangeEmailBindVO, ChangeMobileBindVO, AddUserViewCountVO
+from apps.web.vo.user_vo import (
+    AddUserViewCountVO,
+    ChangeEmailBindVO,
+    ChangeMobileBindVO,
+    ChangePasswordTypeEnum,
+    ChangePasswordVO,
+    ForgetPasswordVO,
+    LoginVO,
+    RegisterVO,
+    UserUpdateVO,
+    WechatBindParamsVO,
+)
 
 
 @Component()
@@ -89,20 +104,26 @@ class UserService:
                         now = datetime.datetime.now()
                         end_time = now + datetime.timedelta(minutes=30)
                         async with transactions.in_transaction():
-                            user_restrict = await UserRestriction.create(user_id=user.id,
-                                                                         restrict_type=UserRestrictionTypeEnum.BAN,
-                                                                         start_time=now,
-                                                                         end_time=end_time)
+                            user_restrict = await UserRestriction.create(
+                                user_id=user.id,
+                                restrict_type=UserRestrictionTypeEnum.BAN,
+                                start_time=now,
+                                end_time=end_time,
+                            )
                             key = f"{user_restrict.id}:{user.id}"
                             await self.redis_util.User.add_unlock_key(random_code, key)
-                            await self.kafka_util.send_email(user.email, EmailConstant.RESET_ERROR_LOGIN_TITLE,
-                                                             EmailConstant.RESET_ERROR_LOGIN_CONTENT.format(
-                                                                 end_time.strftime("%Y-%m-%d %H:%M:%S"),
-                                                                 unblock_url))
+                            await self.kafka_util.send_email(
+                                user.email,
+                                EmailConstant.RESET_ERROR_LOGIN_TITLE,
+                                EmailConstant.RESET_ERROR_LOGIN_CONTENT.format(
+                                    end_time.strftime("%Y-%m-%d %H:%M:%S"), unblock_url
+                                ),
+                            )
                     raise MyException(ErrorCode.ACCOUNT_IS_FORBIDDEN)
                 raise MyException(ErrorCode.PASSWORD_ERROR)
-        elif not await self.redis_util.VerifyCode.check_verify_code(login_vo.mobile, login_vo.code,
-                                                                    VerifyCodeTypeEnum.LOGIN):
+        elif not await self.redis_util.VerifyCode.check_verify_code(
+                login_vo.mobile, login_vo.code, VerifyCodeTypeEnum.LOGIN
+        ):
             # 验证码登录
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
         user_restriction_dto = await self._check_user_restriction(user)
@@ -113,7 +134,7 @@ class UserService:
         user.last_login_time = datetime.datetime.now()
         await asyncio.gather(
             self.redis_util.User.delete_user_error_count(user.id),
-            user.save(update_fields=("last_login_ip", "address", "last_login_time"))
+            user.save(update_fields=("last_login_ip", "address", "last_login_time")),
         )
         token = TokenUtil.create_token(user.id, user.username)
         return {"token": token}
@@ -142,14 +163,15 @@ class UserService:
                     user.comment_forbidden = True
                     user_restriction_dto.comment_forbidden = True
         if update_list:
-            await UserRestriction.bulk_update(update_list, fields=("is_cancel", "cancel_time", "cancel_reason"),
-                                              batch_size=500)
+            await UserRestriction.bulk_update(
+                update_list, fields=("is_cancel", "cancel_time", "cancel_reason"), batch_size=500
+            )
         return user_restriction_dto
 
     async def info(self):
         """
-         获取自身用户信息
-         :return UserInfoDTO
+        获取自身用户信息
+        :return UserInfoDTO
         """
         user_id = ContextVars.token_user_id.get()
         user = await User.filter(id=user_id).first()
@@ -160,16 +182,13 @@ class UserService:
         dto.email = DesensitizedUtil.email(dto.email)
         dto.mobile = DesensitizedUtil.mobile_phone(dto.mobile)
         dto.wechat = DesensitizedUtil.password(dto.wechat)
-        (
-            dto.article_collect_set,
-            dto.article_like_set,
-            dto.comment_like_set,
-            dto.user_restriction
-        ) = await asyncio.gather(
-            self.redis_util.User.get_user_collect_articles(user_id),
-            self.redis_util.User.get_user_like_articles(user_id),
-            self.redis_util.User.get_user_like_comments(user_id),
-            self._check_user_restriction(user)
+        dto.article_collect_set, dto.article_like_set, dto.comment_like_set, dto.user_restriction = (
+            await asyncio.gather(
+                self.redis_util.User.get_user_collect_articles(user_id),
+                self.redis_util.User.get_user_like_articles(user_id),
+                self.redis_util.User.get_user_like_comments(user_id),
+                self._check_user_restriction(user),
+            )
         )
         # 获取用户配置
         dto.user_settings = await self.user_dao.get_user_settings(user_id)
@@ -181,41 +200,46 @@ class UserService:
             return
         restrict_id, user_id = value
         await self.redis_util.User.delete_user_error_count(user_id)
-        await UserRestriction.filter(id=restrict_id).update(is_cancel=True,
-                                                            cancel_time=datetime.datetime.now(),
-                                                            cancel_reason="用户点击邮件链接解封")
+        await UserRestriction.filter(id=restrict_id).update(
+            is_cancel=True, cancel_time=datetime.datetime.now(), cancel_reason="用户点击邮件链接解封"
+        )
         await self.redis_util.User.delete_unlock_key(key)
 
-    async def _fill_register_base_info(self, user: User, request: Request, register_vo: RegisterVO):
+    async def _fill_register_base_info(self, user: User, request: Request, register_vo: RegisterVO) -> None:
         """
-        填充注册基础信息
+        填充用户注册基础信息。
+
+        :param user: 待注册用户。
+        :param request: 当前注册请求。
+        :param register_vo: 用户注册参数。
+        :return: None。
         """
 
         user.username = register_vo.username
         user.nickname = register_vo.nickname
         user.password = EncryptUtil.encrypt(register_vo.password)
-        user.occupation = "初来乍到"
-        user.user_tag = UserTagEnum.NORMAL_USER
         user.last_login_ip = IpUtil.get_ip_address(request)
         user.address = IpUtil.get_address_from_request(request)
         user.summary = "这个人很懒，什么都没有留下"
         user.uid, user.avatar, user.background = await asyncio.gather(
             self.redis_util.User.gen_uid(),
-            self.picture_util.get_random_img_url(avatar=True),
-            self.picture_util.get_random_img_url())
+            self.picture_util.get_random_avatar_url(),
+            self.picture_util.get_random_img_url(),
+        )
         user.gender = GenderEnum.SECRET
 
     async def email_register(self, register_vo: RegisterVO):
         """
-         用户邮箱注册
-         :param register_vo RegisterVO
-         :return token
+        用户邮箱注册
+        :param register_vo RegisterVO
+        :return token
         """
         request = ContextVars.request.get()
         if not register_vo.email or not register_vo.code:
             raise MyException(ErrorCode.PARAM_ERROR)
-        if not await self.redis_util.VerifyCode.check_verify_code(register_vo.email, register_vo.code,
-                                                                  VerifyCodeTypeEnum.REGISTER):
+        if not await self.redis_util.VerifyCode.check_verify_code(
+                register_vo.email, register_vo.code, VerifyCodeTypeEnum.REGISTER
+        ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
         exist_user = await User.filter(username=register_vo.username, email=register_vo.email).exists()
         if exist_user:
@@ -224,8 +248,7 @@ class UserService:
         user.email = register_vo.email
         await self._fill_register_base_info(user, request, register_vo)
         await asyncio.gather(
-            user.save(),
-            self.redis_util.VerifyCode.delete_verify_code(register_vo.email, VerifyCodeTypeEnum.REGISTER)
+            user.save(), self.redis_util.VerifyCode.delete_verify_code(register_vo.email, VerifyCodeTypeEnum.REGISTER)
         )
         asyncio.create_task(self._send_notice(user))
         token = TokenUtil.create_token(user.id, user.username)
@@ -233,15 +256,16 @@ class UserService:
 
     async def mobile_register(self, register_vo: RegisterVO):
         """
-         用户手机号注册
-         :param register_vo RegisterVO
-         :return token
+        用户手机号注册
+        :param register_vo RegisterVO
+        :return token
         """
         request = ContextVars.request.get()
         if not register_vo.mobile or not register_vo.code:
             raise MyException(ErrorCode.PARAM_ERROR)
-        if not await self.redis_util.VerifyCode.check_verify_code(register_vo.mobile, register_vo.code,
-                                                                  VerifyCodeTypeEnum.REGISTER):
+        if not await self.redis_util.VerifyCode.check_verify_code(
+                register_vo.mobile, register_vo.code, VerifyCodeTypeEnum.REGISTER
+        ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
         exist_user = await User.filter(mobile=register_vo.mobile).exists()
         if exist_user:
@@ -250,8 +274,7 @@ class UserService:
         user.mobile = register_vo.mobile
         await self._fill_register_base_info(user, request, register_vo)
         await asyncio.gather(
-            user.save(),
-            self.redis_util.VerifyCode.delete_verify_code(register_vo.mobile, VerifyCodeTypeEnum.REGISTER)
+            user.save(), self.redis_util.VerifyCode.delete_verify_code(register_vo.mobile, VerifyCodeTypeEnum.REGISTER)
         )
         asyncio.create_task(self._send_notice(user))
         token = TokenUtil.create_token(user.id, user.username)
@@ -283,29 +306,28 @@ class UserService:
             dto.is_my_fans,
             dto.fans_count,
             dto.is_friend,
-            dto.is_blocked
+            dto.is_blocked,
         ) = await asyncio.gather(
             Comment.filter(user_id=user_id, status=CommentStatusEnum.PASS).count(),  # 获取评论数量
-            Article.filter(user_id=user_id, status=ArticleStatusEnum.PUBLISHED, is_deleted=False).count(),  # 获取文章数量
+            Article.filter(
+                user_id=user_id, status=ArticleStatusEnum.PUBLISHED, is_deleted=False
+            ).count(),  # 获取文章数量
             self.redis_util.User.get_view_count(user_id),
             self.redis_util.Action.is_followed(login_user_id, user_id),  # 获取粉丝信息
             self.redis_util.Action.is_fans(login_user_id, user_id),
             self.redis_util.Action.get_fans_count(user_id),
             self.chat_dao.is_friend(login_user_id, user_id),
-            self.chat_dao.is_blocked(login_user_id, user_id)
+            self.chat_dao.is_blocked(login_user_id, user_id),
         )
         my_article_ids = await Article.filter(user_id=user_id, is_deleted=False).values_list("id", flat=True)
         # 获取成就相关信息
-        (
-            dto.article_view_count,
-            dto.article_comment_count,
-            dto.article_like_me_count,
-            dto.article_collect_count
-        ) = await asyncio.gather(
-            self.redis_util.Article.get_articles_view_count(my_article_ids),
-            self.redis_util.Article.get_articles_comment_count(my_article_ids),
-            self.redis_util.Article.get_articles_like_count(my_article_ids),
-            self.redis_util.Article.get_articles_collect_count(my_article_ids)
+        dto.article_view_count, dto.article_comment_count, dto.article_like_me_count, dto.article_collect_count = (
+            await asyncio.gather(
+                self.redis_util.Article.get_articles_view_count(my_article_ids),
+                self.redis_util.Article.get_articles_comment_count(my_article_ids),
+                self.redis_util.Article.get_articles_like_count(my_article_ids),
+                self.redis_util.Article.get_articles_collect_count(my_article_ids),
+            )
         )
         # 获取用户配置
         dto.user_settings = await self.user_dao.get_user_common_settings(user_id)
@@ -333,12 +355,13 @@ class UserService:
             check = forget_password_vo.mobile
         else:
             raise MyException(ErrorCode.PARAM_ERROR)
-        if not await self.redis_util.VerifyCode.check_verify_code(check, forget_password_vo.code,
-                                                                  VerifyCodeTypeEnum.FIND_PASSWORD):
+        if not await self.redis_util.VerifyCode.check_verify_code(
+                check, forget_password_vo.code, VerifyCodeTypeEnum.FIND_PASSWORD
+        ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
         await asyncio.gather(
             User.filter(**{key: value}).update(password=EncryptUtil.encrypt(forget_password_vo.password)),
-            self.redis_util.VerifyCode.delete_verify_code(check, VerifyCodeTypeEnum.FIND_PASSWORD)
+            self.redis_util.VerifyCode.delete_verify_code(check, VerifyCodeTypeEnum.FIND_PASSWORD),
         )
 
     async def change_password_by_login(self, change_password_vo: ChangePasswordVO):
@@ -355,13 +378,15 @@ class UserService:
                 if not EncryptUtil.equals(change_password_vo.old_password, user.password):
                     raise MyException(ErrorCode.PASSWORD_ERROR)
             case ChangePasswordTypeEnum.EMAIL_CODE:
-                if not await self.redis_util.VerifyCode.check_verify_code(user.email, change_password_vo.code,
-                                                                          VerifyCodeTypeEnum.CHANGE_PASSWORD):
+                if not await self.redis_util.VerifyCode.check_verify_code(
+                        user.email, change_password_vo.code, VerifyCodeTypeEnum.CHANGE_PASSWORD
+                ):
                     raise MyException(ErrorCode.CODE_VERIFY_ERROR)
                 await self.redis_util.VerifyCode.delete_verify_code(user.email, VerifyCodeTypeEnum.CHANGE_PASSWORD)
             case ChangePasswordTypeEnum.MOBILE_CODE:
-                if not await self.redis_util.VerifyCode.check_verify_code(user.mobile, change_password_vo.code,
-                                                                          VerifyCodeTypeEnum.CHANGE_PASSWORD):
+                if not await self.redis_util.VerifyCode.check_verify_code(
+                        user.mobile, change_password_vo.code, VerifyCodeTypeEnum.CHANGE_PASSWORD
+                ):
                     raise MyException(ErrorCode.CODE_VERIFY_ERROR)
                 await self.redis_util.VerifyCode.delete_verify_code(user.mobile, VerifyCodeTypeEnum.CHANGE_PASSWORD)
             case ChangePasswordTypeEnum.WECHAT_SCAN:
@@ -419,22 +444,23 @@ class UserService:
         if exist_user:
             raise MyException(ErrorCode.EMAIL_HAS_EXISTS)
         user = await User.filter(id=user_id).first()
+        if not user:
+            raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
         # 验证旧邮箱验证码
-        if user.email and not await self.redis_util.VerifyCode.check_verify_code(user.email,
-                                                                                 change_email_bind_vo.old_code,
-                                                                                 VerifyCodeTypeEnum.CHANGE_BIND):
+        if user.email and not await self.redis_util.VerifyCode.check_verify_code(
+                user.email, change_email_bind_vo.old_code, VerifyCodeTypeEnum.CHANGE_BIND
+        ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
         # 验证新邮箱验证码
-        if not await self.redis_util.VerifyCode.check_verify_code(change_email_bind_vo.email,
-                                                                  change_email_bind_vo.code,
-                                                                  VerifyCodeTypeEnum.CHANGE_BIND):
+        if not await self.redis_util.VerifyCode.check_verify_code(
+                change_email_bind_vo.email, change_email_bind_vo.code, VerifyCodeTypeEnum.CHANGE_BIND
+        ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
         user.email = change_email_bind_vo.email
         await user.save(update_fields=("email",))
         await asyncio.gather(
             self.redis_util.VerifyCode.delete_verify_code(user.email, VerifyCodeTypeEnum.CHANGE_BIND),
-            self.redis_util.VerifyCode.delete_verify_code(change_email_bind_vo.email,
-                                                          VerifyCodeTypeEnum.CHANGE_BIND)
+            self.redis_util.VerifyCode.delete_verify_code(change_email_bind_vo.email, VerifyCodeTypeEnum.CHANGE_BIND),
         )
 
     async def change_mobile_bind(self, change_mobile_bind_vo: ChangeMobileBindVO):
@@ -448,22 +474,23 @@ class UserService:
             raise MyException(ErrorCode.MOBILE_HAS_EXISTS)
         user_id = ContextVars.token_user_id.get()
         user = await User.filter(id=user_id).first()
+        if not user:
+            raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
         # 验证旧手机号验证码
-        if user.mobile and not await self.redis_util.VerifyCode.check_verify_code(user.mobile,
-                                                                                  change_mobile_bind_vo.old_code,
-                                                                                  VerifyCodeTypeEnum.CHANGE_BIND):
+        if user.mobile and not await self.redis_util.VerifyCode.check_verify_code(
+                user.mobile, change_mobile_bind_vo.old_code, VerifyCodeTypeEnum.CHANGE_BIND
+        ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
         # 验证新手机号验证码
-        if not await self.redis_util.VerifyCode.check_verify_code(change_mobile_bind_vo.mobile,
-                                                                  change_mobile_bind_vo.code,
-                                                                  VerifyCodeTypeEnum.CHANGE_BIND):
+        if not await self.redis_util.VerifyCode.check_verify_code(
+                change_mobile_bind_vo.mobile, change_mobile_bind_vo.code, VerifyCodeTypeEnum.CHANGE_BIND
+        ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
         user.mobile = change_mobile_bind_vo.mobile
         await user.save(update_fields=("mobile",))
         await asyncio.gather(
             self.redis_util.VerifyCode.delete_verify_code(user.mobile, VerifyCodeTypeEnum.CHANGE_BIND),
-            self.redis_util.VerifyCode.delete_verify_code(change_mobile_bind_vo.mobile,
-                                                          VerifyCodeTypeEnum.CHANGE_BIND)
+            self.redis_util.VerifyCode.delete_verify_code(change_mobile_bind_vo.mobile, VerifyCodeTypeEnum.CHANGE_BIND),
         )
 
     async def wechat_register(self, register_vo: RegisterVO):
@@ -481,10 +508,7 @@ class UserService:
         user = User()
         user.wechat = open_id
         await self._fill_register_base_info(user, request, register_vo)
-        await asyncio.gather(
-            user.save(),
-            self.redis_util.Wechat.delete_random_code_openid(register_vo.code)
-        )
+        await asyncio.gather(user.save(), self.redis_util.Wechat.delete_random_code_openid(register_vo.code))
         asyncio.create_task(self._send_notice(user))
         token = TokenUtil.create_token(user.id, user.username)
         return {"token": token}
@@ -598,6 +622,8 @@ class UserService:
         if not open_id:
             raise MyException(ErrorCode.PARAM_ERROR)
         user = await User.filter(id=user_id).first()
+        if not user:
+            raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
         if user.wechat:
             # 已经绑定过微信, 验证旧微信是否通过验证
             wechat_open_id = await self.redis_util.Wechat.get_random_code_openid(wechat_bind_params_vo.old_code)
@@ -607,7 +633,7 @@ class UserService:
         await user.save(update_fields=("wechat",))
         await asyncio.gather(
             self.redis_util.Wechat.delete_random_code_openid(wechat_bind_params_vo.old_code),
-            self.redis_util.Wechat.delete_random_code_openid(wechat_bind_params_vo.code)
+            self.redis_util.Wechat.delete_random_code_openid(wechat_bind_params_vo.code),
         )
 
     async def get_wechat_user_info(self, code: str):
@@ -632,7 +658,9 @@ class UserService:
     async def _send_notice(self, user: User):
         notice_dto = NoticeSaveDTO()
         notice_dto.title = "欢迎加入心悦心享"
-        notice_dto.content = f"Hi~ {user.nickname}，在这里你可以发布你的文章、图片等，分享生活中的点点滴滴，希望你能喜欢❤️"
+        notice_dto.content = (
+            f"Hi~ {user.nickname}，在这里你可以发布你的文章、图片等，记录生活中的点点滴滴，希望你能喜欢❤️"
+        )
         notice_dto.notice_type = NoticeTypeEnum.SYSTEM
         notice_dto.user_id = user.id
         await self.kafka_util.send_notice(notice_dto)

@@ -14,10 +14,9 @@ class ActionTypeEnum(IntEnum):
 
 class ObjectTypeEnum(IntEnum):
     """
-    对象类型 1:文章 2:评论 3:用户 4:分享 5:图片
+    对象类型 1:文章 2:评论 3:用户 5:图片
     """
     ARTICLE = 1
     COMMENT = 2
     USER = 3
-    SHARE = 4
     PICTURE = 5

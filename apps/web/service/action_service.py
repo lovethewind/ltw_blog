@@ -5,12 +5,12 @@ import asyncio
 
 from tortoise.transactions import in_transaction
 
-from apps.base.core.depend_inject import Component, Autowired
+from apps.base.core.depend_inject import Autowired, Component
 from apps.base.enum.action import ActionTypeEnum, ObjectTypeEnum
 from apps.base.enum.notice import NoticeTypeEnum
 from apps.base.enum.user import UserSettingsEnum
 from apps.base.models.action import Action
-from apps.base.utils.page_util import Pagination, PageResult
+from apps.base.utils.page_util import PageResult, Pagination
 from apps.base.utils.redis_util import RedisUtil
 from apps.web.core.context_vars import ContextVars
 from apps.web.core.kafka.util import KafkaUtil
@@ -18,15 +18,14 @@ from apps.web.dao.article_dao import ArticleDao
 from apps.web.dao.chat_dao import ChatDao
 from apps.web.dao.comment_dao import CommentDao
 from apps.web.dao.picture_dao import PictureDao
-from apps.web.dao.share_dao import ShareDao
 from apps.web.dao.user_dao import UserDao
-from apps.web.dto.action_dto import UserFollowInfoDTO, ActionDTO, BlckListDTO
+from apps.web.dto.action_dto import ActionDTO, BlckListDTO, UserFollowInfoDTO
 from apps.web.dto.base_dto import BaseDTO
 from apps.web.dto.chat_dto import WSMessageDTO
 from apps.web.dto.notice_dto import NoticeSaveDTO
 from apps.web.dto.user_dto import UserBaseInfoDTO, UserSimpleInfoDTO
 from apps.web.utils.ws_util import manager
-from apps.web.vo.action_vo import ActionQueryVO, ActionAddVO, ActionTypeDetailQueryVO
+from apps.web.vo.action_vo import ActionAddVO, ActionQueryVO, ActionTypeDetailQueryVO
 
 
 @Component()
@@ -36,12 +35,16 @@ class ActionService:
     comment_dao: CommentDao = Autowired()
     picture_dao: PictureDao = Autowired()
     chat_dao: ChatDao = Autowired()
-    share_dao: ShareDao = Autowired()
     redis_util: RedisUtil = Autowired()
     kafka_util: KafkaUtil = Autowired()
 
-    async def list_actions(self, current: int, size: int, action_query_vo: ActionQueryVO,
-                           action_type_detail_query_vo: ActionTypeDetailQueryVO):
+    async def list_actions(
+            self,
+            current: int,
+            size: int,
+            action_query_vo: ActionQueryVO,
+            action_type_detail_query_vo: ActionTypeDetailQueryVO,
+    ):
         """
         获取行为列表
         :param current:
@@ -63,8 +66,13 @@ class ActionService:
         page = await self._get_action_type_data(current, size, action_query_vo, action_type_detail_query_vo)
         return page
 
-    async def list_user_actions(self, current: int, size: int, action_query_vo: ActionQueryVO,
-                                action_type_detail_query_vo: ActionTypeDetailQueryVO):
+    async def list_user_actions(
+            self,
+            current: int,
+            size: int,
+            action_query_vo: ActionQueryVO,
+            action_type_detail_query_vo: ActionTypeDetailQueryVO,
+    ):
         """
         获取用户行为列表
         :param current:
@@ -74,8 +82,9 @@ class ActionService:
         :return:
         """
         user_id = ContextVars.token_user_id.get()
-        if ((action_query_vo.user_id and action_query_vo.user_id != user_id)
-                or (action_query_vo.obj_id and action_query_vo.obj_id != user_id)):
+        if (action_query_vo.user_id and action_query_vo.user_id != user_id) or (
+                action_query_vo.obj_id and action_query_vo.obj_id != user_id
+        ):
             return PageResult[ActionDTO](current=current, size=size, total=0, records=[])
         page = await self._get_action_type_data(current, size, action_query_vo, action_type_detail_query_vo)
         return page
@@ -87,11 +96,20 @@ class ActionService:
         :return:
         """
         user_id = ContextVars.token_user_id.get()
-        action = await Action.filter(obj_id=action_add_vo.obj_id, obj_type=action_add_vo.obj_type,
-                                     action_type=action_add_vo.action_type, user_id=user_id).first()
+        action = await Action.filter(
+            obj_id=action_add_vo.obj_id,
+            obj_type=action_add_vo.obj_type,
+            action_type=action_add_vo.action_type,
+            user_id=user_id,
+        ).first()
         if not action:
-            action = Action(obj_id=action_add_vo.obj_id, obj_type=action_add_vo.obj_type,
-                            action_type=action_add_vo.action_type, user_id=user_id, status=False)
+            action = Action(
+                obj_id=action_add_vo.obj_id,
+                obj_type=action_add_vo.obj_type,
+                action_type=action_add_vo.action_type,
+                user_id=user_id,
+                status=False,
+            )
             asyncio.create_task(self._send_notice(user_id, action))
         action.status = not action.status
         async with in_transaction():
@@ -124,10 +142,6 @@ class ActionService:
                     article = await self.article_dao.get_article(comment.obj_id)
                     notice_dto.detail.obj_id = article.id
                     notice_dto.detail.obj_content = article.title
-                elif comment.obj_type == ObjectTypeEnum.SHARE:
-                    share = await self.share_dao.get_share(comment.obj_id)
-                    notice_dto.detail.obj_id = share.id
-                    notice_dto.detail.obj_content = share.content
                 elif comment.obj_type == ObjectTypeEnum.PICTURE:
                     picture = await self.picture_dao.get_picture(comment.obj_id)
                     notice_dto.detail.obj_id = picture.id
@@ -137,11 +151,6 @@ class ActionService:
                 notice_dto.detail.comment_id = comment.id
                 notice_dto.detail.comment_content = comment.content
                 notice_dto.title = "点赞了你的评论"
-            elif action.obj_type == ObjectTypeEnum.SHARE:
-                share = await self.share_dao.get_share(action.obj_id)
-                notice_dto.detail.obj_content = share.content
-                notice_dto.user_id = share.user_id
-                notice_dto.title = "点赞了你的分享"
             elif action.obj_type == ObjectTypeEnum.PICTURE:
                 picture = await self.picture_dao.get_picture(action.obj_id)
                 notice_dto.detail.obj_content = picture.url
@@ -171,8 +180,13 @@ class ActionService:
         notice_dto.detail.from_user = await manager.get_user_info(user_id, UserBaseInfoDTO)
         await manager.send_message(WSMessageDTO[NoticeSaveDTO](message=notice_dto))
 
-    async def _get_action_type_data(self, current: int, size: int, action_query_vo: ActionQueryVO,
-                                    action_type_detail_query_vo: ActionTypeDetailQueryVO):
+    async def _get_action_type_data(
+            self,
+            current: int,
+            size: int,
+            action_query_vo: ActionQueryVO,
+            action_type_detail_query_vo: ActionTypeDetailQueryVO,
+    ):
         """
         获取行为的实际数据
         :param current:
@@ -226,8 +240,6 @@ class ActionService:
                 await self.redis_util.Article.add_or_remove_article_like(action.user_id, action.obj_id)
             elif action.obj_type == ObjectTypeEnum.COMMENT:
                 await self.redis_util.Comment.add_or_remove_comment_like(action.user_id, action.obj_id)
-            elif action.obj_type == ObjectTypeEnum.SHARE:
-                await self.redis_util.Share.add_or_remove_share_like(action.user_id, action.obj_id)
             elif action.obj_type == ObjectTypeEnum.PICTURE:
                 await self.redis_util.Picture.add_or_remove_picture_like(action.user_id, action.obj_id)
         elif action.action_type == ActionTypeEnum.COLLECT:

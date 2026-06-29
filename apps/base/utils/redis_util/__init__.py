@@ -13,7 +13,6 @@ from .comment import CommentMethod
 from .es import ESMethod
 from .acrion import ActionMethod
 from .picture import PictureMethod
-from .share import ShareMethod
 from .user import UserMethod
 from .verify_code import VerifyCodeMethod
 from .website import WebsiteMethod
@@ -36,7 +35,6 @@ class RedisUtil:
         self.Comment = CommentMethod(self.redis)
         self.Website = WebsiteMethod(self.redis)
         self.ES = ESMethod(self.redis)
-        self.Share = ShareMethod(self.redis)
         self.Picture = PictureMethod(self.redis)
         self.Chat = ChatMethod(self.redis)
 
