@@ -1,0 +1,50 @@
+from apps.base.core.depend_inject import ContainerUtil, GetValue
+from apps.web.config.nacos_config import NacosConfig
+from apps.web.utils.path_util import PathUtil
+
+DEFAULT_SERVER_HOST = "0.0.0.0"
+DEFAULT_SERVER_PORT = 8001
+
+_container_initialized = False
+
+
+def init_container_config() -> None:
+    """
+    初始化应用配置容器。
+
+    :return: None
+    """
+    global _container_initialized
+    if _container_initialized:
+        return
+    ContainerUtil.init(resource_dir=PathUtil.RESOURCE_PATH, server_config_class=NacosConfig)
+    _container_initialized = True
+
+
+def get_server_host() -> str:
+    """
+    获取 FastAPI 服务监听地址。
+
+    :return: 服务监听地址
+    """
+    init_container_config()
+    return GetValue("app.server.host") or DEFAULT_SERVER_HOST
+
+
+def get_server_port() -> int:
+    """
+    获取 FastAPI 服务监听端口。
+
+    :return: 服务监听端口
+    """
+    init_container_config()
+    return int(GetValue("app.server.port") or DEFAULT_SERVER_PORT)
+
+
+def get_server_bind() -> str:
+    """
+    获取 Gunicorn 服务绑定地址。
+
+    :return: Gunicorn 绑定地址
+    """
+    return f"{get_server_host()}:{get_server_port()}"

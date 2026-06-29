@@ -1,0 +1,10 @@
+.git
+.gitnexus
+.idea
+.venv
+.env
+__pycache__
+*.py[cod]
+.DS_Store
+logs
+nacos-data
