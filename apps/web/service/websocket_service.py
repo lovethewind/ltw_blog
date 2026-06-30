@@ -5,43 +5,32 @@ from pydantic import ValidationError
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from apps.base.core.depend_inject import Component
-from apps.base.enum.chat import WSMessageTypeEnum
 from apps.web.config.logger_config import logger
-from apps.web.dto.chat_dto import WSMessageDTO, SystemMessageDTO, ChangeCurrentConversationMessageDTO, \
-    ChatSendMessageDTO, FriendApplyMessageDTO
-from apps.web.dto.notice_dto import NoticeSaveDTO
 from apps.web.utils.ws_util import manager
 
 
 @Component()
 class WebSocketService:
 
-    async def connect_system(self, websocket: WebSocket, user_id: int):
+    async def connect_system(self, websocket: WebSocket, user_id: int) -> None:
+        """
+        建立连接并将客户端消息交给对应 Handler。
+
+        :param websocket: WebSocket 连接
+        :param user_id: 已认证用户 ID
+        :return: None
+        """
         websocket.scope["user_id"] = user_id
         await manager.connect(websocket)
         logger.info(f"【{user_id}】连接系统成功")
-        while True:
-            try:
+        try:
+            while True:
                 message = await websocket.receive_json()
                 try:
-                    msg = WSMessageDTO.model_validate(message)
-                    if msg.message_type == WSMessageTypeEnum.NOTICE:
-                        message = WSMessageDTO[NoticeSaveDTO].model_validate(message)
-                    elif msg.message_type == WSMessageTypeEnum.SYSTEM_IN_TIME:
-                        message = WSMessageDTO[SystemMessageDTO].model_validate(message)
-                    elif msg.message_type == WSMessageTypeEnum.FRIEND_APPLY:
-                        message = WSMessageDTO[FriendApplyMessageDTO].model_validate(message)
-                    elif msg.message_type == WSMessageTypeEnum.CHAT_MESSAGE:
-                        message = WSMessageDTO[ChatSendMessageDTO].model_validate(message)
-                        message.message.user_id = user_id
-                    elif msg.message_type == WSMessageTypeEnum.CHANGE_CURRENT_CONVERSATION:
-                        message = WSMessageDTO[ChangeCurrentConversationMessageDTO].model_validate(message)
-                        message.message.user_id = user_id
-                    await manager.send_message(message)
-                except ValidationError as e:
-                    logger.info(f"无效的消息: {e}")
-                    continue
-            except WebSocketDisconnect as e:
-                logger.info(f"【{user_id}】关闭连接系统")
-                await manager.disconnect(websocket)
-                break
+                    await manager.handle_client_message(websocket, message, user_id)
+                except (ValidationError, ValueError) as exc:
+                    logger.info(f"无效的消息: {exc}")
+        except WebSocketDisconnect:
+            logger.info(f"【{user_id}】关闭连接系统")
+        finally:
+            await manager.disconnect(websocket)

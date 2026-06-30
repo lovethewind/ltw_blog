@@ -1,6 +1,7 @@
 # @Time    : 2024/11/4 13:57
 # @Author  : frank
 # @File    : chat_service.py
+import asyncio
 from datetime import datetime
 
 from tortoise.expressions import Q
@@ -11,7 +12,6 @@ from apps.base.enum.chat import ContactApplyStatusEnum, ContactTypeEnum, WSMessa
 from apps.base.enum.error_code import ErrorCode
 from apps.base.exception.my_exception import MyException
 from apps.base.models.chat import Conversation, ChatMessage, ContactApplyRecord, Contact
-from apps.base.utils.page_util import Pagination
 from apps.base.utils.redis_util import RedisUtil
 from apps.web.core.context_vars import ContextVars
 from apps.web.dao.chat_dao import ChatDao
@@ -29,7 +29,7 @@ class ChatService:
     chat_dao: ChatDao = Autowired()
     redis_util: RedisUtil = Autowired()
 
-    async def list_conversation(self, current_page: int, page_size: int):
+    async def list_conversation(self, current_page: int, page_size: int) -> dict:
         """
         获取会话列表
         :param current_page:
@@ -38,18 +38,26 @@ class ChatService:
         """
         user_id = ContextVars.token_user_id.get()
         q = Conversation.filter(user_id=user_id, is_clear=False).order_by("-is_pinned", "-last_view_time")
-        page = await Pagination[ConversationDTO](current_page, page_size, q).execute()
-        last_message_dict = await self.chat_dao.get_conversation_last_message(page.records)
-        for conversation in page.records:
-            conversation.user_profile = await manager.get_user_info(conversation.contact_id)
-            conversation.group_profile = await manager.get_group_info(conversation.contact_id)
+        current_page = current_page if current_page > 0 else 1
+        page_size = page_size if page_size > 0 else 10
+        total, conversations = await asyncio.gather(
+            q.count(),
+            q.page(current_page, page_size).all(),
+        )
+        records = ConversationDTO.bulk_model_validate(conversations)
+        last_message_dict = await self.chat_dao.get_conversation_last_message(records)
+        for conversation in records:
+            if conversation.contact_type == ContactTypeEnum.USER:
+                conversation.user_profile = await manager.get_user_info(conversation.contact_id)
+            else:
+                conversation.group_profile = await manager.get_group_info(conversation.contact_id)
             conversation.last_message = last_message_dict.get(conversation.conversation_id)
-            conversation.online = manager.is_online(conversation)
+            conversation.online = await manager.is_online(conversation)
             conversation.unread_count = await self.redis_util.Chat.get_conversation_unread_count(user_id,
                                                                                                  conversation.conversation_id)
-        return page
+        return {"total": total, "records": records}
 
-    async def get_conversation_detail(self, conversation_vo: ConversationVO):
+    async def get_conversation_detail(self, conversation_vo: ConversationVO) -> ConversationDTO:
         """
         获取会话详情
         :param conversation_vo:
@@ -67,9 +75,11 @@ class ChatService:
             conversation.is_clear = False
             await conversation.save(update_fields=("is_clear",))
         dto = ConversationDTO.model_validate(conversation, from_attributes=True)
-        dto.user_profile = await manager.get_user_info(dto.contact_id)
-        dto.group_profile = await manager.get_group_info(dto.contact_id)
-        dto.online = manager.is_online(dto)
+        if dto.contact_type == ContactTypeEnum.USER:
+            dto.user_profile = await manager.get_user_info(dto.contact_id)
+        else:
+            dto.group_profile = await manager.get_group_info(dto.contact_id)
+        dto.online = await manager.is_online(dto)
         dto.unread_count = await self.redis_util.Chat.get_conversation_unread_count(user_id,
                                                                                     conversation.conversation_id)
         last_message_dict = await self.chat_dao.get_conversation_last_message([conversation])
@@ -192,7 +202,7 @@ class ChatService:
             await manager.send_message(message)
             await record.save(update_fields=("status", "update_time"))
 
-    async def list_contact(self, contact_type: ContactTypeEnum, current_page: int, page_size: int):
+    async def list_contact(self, contact_type: ContactTypeEnum, current_page: int, page_size: int) -> dict:
         """
         获取好友列表
         :param contact_type:
@@ -202,11 +212,17 @@ class ChatService:
         """
         user_id = ContextVars.token_user_id.get()
         q = Contact.filter(user_id=user_id, contact_type=contact_type)
-        page = await Pagination[ContactDTO](current_page, page_size, q).execute()
-        for contact in page.records:
+        current_page = current_page if current_page > 0 else 1
+        page_size = page_size if page_size > 0 else 10
+        total, contacts = await asyncio.gather(
+            q.count(),
+            q.page(current_page, page_size).all(),
+        )
+        records = ContactDTO.bulk_model_validate(contacts)
+        for contact in records:
             contact.user_profile = await manager.get_user_info(contact.contact_id, UserProfileDTO)
             contact.group_profile = await manager.get_group_info(contact.contact_id, GroupProfileDTO)
-        return page
+        return {"total": total, "records": records}
 
     async def delete_contact(self, contact_vo: ContactVO):
         """

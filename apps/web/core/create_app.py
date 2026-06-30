@@ -24,6 +24,7 @@ from apps.web.config.server_config import init_container_config
 from apps.web.core.context_vars import ContextVars
 from apps.web.core.kafka.util import KafkaUtil
 from apps.web.utils.depends_util import DependsUtil
+from apps.web.utils.ws_util import manager
 
 # 先初始化容器配置
 init_container_config()
@@ -58,13 +59,18 @@ class CreateApp:
         :param app: FastAPI 应用实例
         :return: 生命周期异步生成器
         """
-        kafka_util = GetBean(KafkaUtil)
-        await kafka_util.start_consumer()
+        kafka_util = None
         try:
+            await manager.start()
+            kafka_util = GetBean(KafkaUtil)
+            await kafka_util.start_consumer()
             yield
         finally:
-            kafka_util = GetBean(KafkaUtil)
-            await kafka_util.stop()
+            try:
+                if kafka_util:
+                    await kafka_util.stop()
+            finally:
+                await manager.stop()
 
     def _db_init(
         self,
@@ -104,7 +110,7 @@ class CreateApp:
                         self.app.include_router(m_router, prefix=prefix)
                         logger.info(f"注册路由[{m_router.prefix}]({module})成功")
 
-    def _add_exception_handler(self):
+    def _add_exception_handler(self) -> None:
         """
         添加异常处理
         :return:
@@ -122,12 +128,18 @@ class CreateApp:
             return ResponseUtil.fail_cmd(code=exc.status_code, message=exc.detail)
 
         @self.app.exception_handler(Exception)
-        async def global_exception_handler(request: Request, exc: Exception):
-            """全局Exception handler"""
+        async def global_exception_handler(request: Request, exc: Exception) -> Response:
+            """
+            处理 Web 全局异常。
+
+            :param request: 请求对象
+            :param exc: 异常对象
+            :return: 统一响应
+            """
             if isinstance(exc, MyException):
                 return ResponseUtil.fail_cmd(exc.code, exc.message, exc.data)
-            # logger.exception(f"global_exception_handler: {exc}")
-            return ResponseUtil.fail_cmd(message=str(exc))
+            logger.exception("global_exception_handler", exc_info=exc)
+            return ResponseUtil.fail(ErrorCode.SERVICE_ERROR)
 
     def _add_middleware(self):
         """

@@ -5,7 +5,7 @@ from json import JSONDecodeError
 import aiohttp
 from PIL import Image, ImageOps
 
-from apps.base.core.depend_inject import Component, RefreshScope, Autowired, Value, logger
+from apps.base.core.depend_inject import Autowired, Component, RefreshScope, Value, logger
 from apps.base.enum.oss import DirType
 from apps.base.utils.oss_util import OssUtil
 
@@ -13,181 +13,235 @@ from apps.base.utils.oss_util import OssUtil
 @Component()
 @RefreshScope(["app.web.random-img-url-api-list", "app.web.random-avatar-url-api-list"])
 class PictureUtil:
-    """
-    从指定网址获取随机图片并保存，返回url
-    """
+    """获取随机头像或图片，并按需生成压缩图。"""
 
     oss_util: OssUtil = Autowired()
     random_img_url_api_list: list[str] = Value("app.web.random-img-url-api-list")
     random_avatar_url_api_list: list[str] = Value("app.web.random-avatar-url-api-list")
 
-    async def get_random_img_url(self, avatar=False):
-        if avatar:
-            return await self._get_random_img_url("avatar", "头像", dir_type=DirType.AVATAR)
-        return await self._get_random_img_url("imgurl", "图片")
-
-    async def get_random_avatar_url(self) -> str | None:
+    async def get_random_avatar_url(self, with_thumb: bool = False, only_thumb: bool = False) -> str | tuple[str, str]:
         """
-        获取随机头像，压缩为 WebP 后上传到 OSS。
+        获取随机头像地址。
 
-        :return: 压缩头像地址，获取失败时返回 None。
+        :param with_thumb: 是否同时返回原图和压缩图地址。
+        :param only_thumb: 是否只返回压缩图地址。
+        :return: 图片地址或原图、压缩图地址元组，获取失败时返回空值。
+        :raises ValueError: with_thumb 和 only_thumb 同时为 True 时抛出。
+        """
+        self._validate_thumb_options(with_thumb, only_thumb)
+        return await self._get_random_url(
+            api_list=self.random_avatar_url_api_list,
+            json_key="avatar",
+            source_dir_type=DirType.AVATAR,
+            thumb_dir_type=DirType.AVATAR,
+            max_width=320,
+            with_thumb=with_thumb,
+            only_thumb=only_thumb,
+        )
+
+    async def get_random_img_url(self, with_thumb: bool = False, only_thumb: bool = False) -> str | tuple[str, str]:
+        """
+        获取随机普通图片地址。
+
+        :param with_thumb: 是否同时返回原图和压缩图地址。
+        :param only_thumb: 是否只返回压缩图地址。
+        :return: 图片地址或原图、压缩图地址元组，获取失败时返回空值。
+        :raises ValueError: with_thumb 和 only_thumb 同时为 True 时抛出。
+        """
+        self._validate_thumb_options(with_thumb, only_thumb)
+        return await self._get_random_url(
+            api_list=self.random_img_url_api_list,
+            json_key="imgurl",
+            source_dir_type=DirType.IMAGE,
+            thumb_dir_type=DirType.THUMB,
+            max_width=640,
+            with_thumb=with_thumb,
+            only_thumb=only_thumb,
+        )
+
+    async def _get_random_url(
+        self,
+        api_list: list[str],
+        json_key: str,
+        source_dir_type: DirType,
+        thumb_dir_type: DirType,
+        max_width: int,
+        with_thumb: bool,
+        only_thumb: bool,
+    ) -> str | tuple[str, str]:
+        """
+        遍历随机图片接口并生成所需返回结果。
+
+        :param api_list: 随机图片接口列表。
+        :param json_key: JSON 响应中的图片地址字段。
+        :param source_dir_type: 原图上传目录类型。
+        :param thumb_dir_type: 压缩图上传目录类型。
+        :param max_width: 压缩图最大宽度。
+        :param with_thumb: 是否同时返回原图和压缩图地址。
+        :param only_thumb: 是否只返回压缩图地址。
+        :return: 图片地址或原图、压缩图地址元组。
         """
         async with aiohttp.ClientSession() as session:
-            for url in self.random_avatar_url_api_list:
+            for api_url in api_list:
                 try:
-                    async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
-                        body = await response.read()
-                        location = response.headers.get("Location")
-                    if not body:
-                        if self._is_img_url(location):
-                            return await self._upload_remote_avatar(session, location)
-                        logger.warning(f"{url}头像地址无法使用，请确认")
+                    body, remote_url = await self._fetch_random_source(session, api_url, json_key)
+                    if not body and not remote_url:
                         continue
-                    try:
-                        json_data: dict = json.loads(body)
-                        avatar_url = json_data.get("avatar")
-                        if avatar_url:
-                            return await self._upload_remote_avatar(session, avatar_url)
-                    except JSONDecodeError, UnicodeDecodeError:
-                        avatar_url = await self._upload_avatar_image(body)
-                        if avatar_url:
-                            return avatar_url
-                except Exception as e:
-                    logger.exception(f"{url}随机头像获取失败: {e}")
-            return None
+                    return await self._prepare_result(
+                        session=session,
+                        body=body,
+                        remote_url=remote_url,
+                        source_dir_type=source_dir_type,
+                        thumb_dir_type=thumb_dir_type,
+                        max_width=max_width,
+                        with_thumb=with_thumb,
+                        only_thumb=only_thumb,
+                    )
+                except Exception as exc:
+                    logger.exception(f"{api_url}随机图片获取失败: {exc}")
+        return self._format_result("", "", with_thumb, only_thumb)
 
-    async def get_random_cover_urls(self) -> tuple[str | None, str | None]:
+    async def _fetch_random_source(
+        self, session: aiohttp.ClientSession, api_url: str, json_key: str
+    ) -> tuple[bytes, str]:
         """
-        获取随机文章封面，并尽量同步生成缩略图。
+        从随机图片接口读取二进制图片或远程图片地址。
 
-        :return: 原图地址和缩略图地址，缩略图生成失败时回退为原图地址。
+        :param session: aiohttp 会话。
+        :param api_url: 随机图片接口地址。
+        :param json_key: JSON 响应中的图片地址字段。
+        :return: 图片二进制内容和远程图片地址，未获取到时返回空值。
         """
-        min_length = 10000
-        async with aiohttp.ClientSession() as session:
-            for url in self.random_img_url_api_list:
-                response = await session.get(url)
-                body = await response.content.read()
-                if not body or len(body) < min_length:
-                    location = response.headers.get("Location")
-                    if self._is_img_url(location):
-                        return await self._upload_remote_image_with_thumb(session, location)
-                    logger.warning(f"{url}图片地址无法使用，请确认")
-                    continue
-                try:
-                    json_data: dict = json.loads(body)
-                    img_url = json_data.get("imgurl")
-                    if img_url:
-                        return await self._upload_remote_image_with_thumb(session, img_url)
-                except JSONDecodeError, UnicodeDecodeError:
-                    return await self._upload_image_with_thumb(body, self._random_image_name())
-            return None, None
+        async with session.get(api_url, timeout=aiohttp.ClientTimeout(total=30)) as response:
+            if response.status >= 400:
+                logger.warning(f"{api_url}随机图片接口请求失败，状态码: {response.status}")
+                return b"", ""
+            body = await response.read()
+            location = response.headers.get("Location") or ""
 
-    async def _get_random_img_url(self, key: str, description: str, dir_type=DirType.IMAGE):
-        """
-        获取图片
-        """
-        min_length = 10000
-        async with aiohttp.ClientSession() as session:
-            for url in self.random_img_url_api_list:
-                response = await session.get(url)
-                body = await response.content.read()
-                if not body or len(body) < min_length:
-                    if self.is_img_url(response.headers.get("Location")):
-                        return response.headers.get("Location")
-                    logger.warning(f"{url}{description}地址无法使用，请确认")
-                    continue
-                try:
-                    json_data: dict = json.loads(body)
-                    return json_data.get(key)
-                except (JSONDecodeError, UnicodeDecodeError) as e:
-                    # 返回的是图片二进制流，上传到oss
-                    return await self.oss_util.upload_file(body, self._random_image_name(), dir_type=dir_type)
-            return None
+        if body:
+            try:
+                json_data = json.loads(body)
+                remote_url = json_data.get(json_key, "") if isinstance(json_data, dict) else ""
+                if isinstance(remote_url, str) and remote_url:
+                    return b"", remote_url
+            except JSONDecodeError, UnicodeDecodeError:
+                return body, ""
+        if self._is_img_url(location):
+            return b"", location
+        logger.warning(f"{api_url}随机图片地址无法使用，请确认")
+        return b"", ""
 
-    async def _upload_remote_image_with_thumb(
-        self, session: aiohttp.ClientSession, url: str
-    ) -> tuple[str | None, str | None]:
+    async def _prepare_result(
+        self,
+        session: aiohttp.ClientSession,
+        body: bytes,
+        remote_url: str,
+        source_dir_type: DirType,
+        thumb_dir_type: DirType,
+        max_width: int,
+        with_thumb: bool,
+        only_thumb: bool,
+    ) -> str | tuple[str, str]:
         """
-        下载远程图片并上传原图和缩略图。
+        上传原图并按返回模式生成压缩图。
+
+        :param session: aiohttp 会话。
+        :param body: 图片二进制内容。
+        :param remote_url: 远程原图地址。
+        :param source_dir_type: 原图上传目录类型。
+        :param thumb_dir_type: 压缩图上传目录类型。
+        :param max_width: 压缩图最大宽度。
+        :param with_thumb: 是否同时返回原图和压缩图地址。
+        :param only_thumb: 是否只返回压缩图地址。
+        :return: 图片地址或原图、压缩图地址元组。
+        """
+        if remote_url and not with_thumb and not only_thumb:
+            return remote_url
+
+        file_name = self._get_image_name_from_url(remote_url) if remote_url else self._random_image_name()
+        if remote_url and not body:
+            body = await self._download_image(session, remote_url)
+            if not body:
+                return self._format_result(remote_url, "", with_thumb, only_thumb)
+
+        original_url = remote_url
+        if not only_thumb:
+            original_url = await self.oss_util.upload_file(body, file_name, dir_type=source_dir_type) or remote_url
+            if not with_thumb:
+                return original_url
+            if not original_url:
+                return "", ""
+
+        try:
+            thumb_body = self._build_thumbnail(body, max_width=max_width)
+            thumb_url = await self.oss_util.upload_file(
+                thumb_body, self._get_thumb_name(file_name), dir_type=thumb_dir_type
+            )
+        except Exception as exc:
+            logger.exception(f"生成或上传压缩图失败: {exc}")
+            thumb_url = ""
+        if only_thumb and not thumb_url and not original_url:
+            original_url = await self.oss_util.upload_file(body, file_name, dir_type=source_dir_type) or ""
+        return self._format_result(original_url, thumb_url or "", with_thumb, only_thumb)
+
+    async def _download_image(self, session: aiohttp.ClientSession, url: str) -> bytes:
+        """
+        下载远程图片。
 
         :param session: aiohttp 会话。
         :param url: 远程图片地址。
-        :return: 原图地址和缩略图地址，失败时回退为远程原图地址。
+        :return: 图片二进制内容，下载失败时返回空字节。
         """
         try:
             async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
                 if response.status != 200:
                     logger.warning(f"{url}图片下载失败，状态码: {response.status}")
-                    return url, url
-                body = await response.read()
-            file_name = self._get_image_name_from_url(url)
-            return await self._upload_image_with_thumb(body, file_name)
-        except Exception as e:
-            logger.exception(f"{url}图片下载或上传失败: {e}")
-            return url, url
+                    return b""
+                return await response.read()
+        except Exception as exc:
+            logger.exception(f"{url}图片下载失败: {exc}")
+            return b""
 
-    async def _upload_remote_avatar(self, session: aiohttp.ClientSession, url: str) -> str | None:
+    def _format_result(
+        self, original_url: str, thumb_url: str, with_thumb: bool, only_thumb: bool
+    ) -> str | tuple[str, str]:
         """
-        下载远程头像并上传压缩版本。
+        按调用参数格式化图片地址。
 
-        :param session: aiohttp 会话。
-        :param url: 远程头像地址。
-        :return: 压缩头像地址，处理失败时回退为远程地址。
+        :param original_url: 原图地址。
+        :param thumb_url: 压缩图地址。
+        :param with_thumb: 是否同时返回原图和压缩图地址。
+        :param only_thumb: 是否只返回压缩图地址。
+        :return: 图片地址或原图、压缩图地址元组。
         """
-        try:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
-                if response.status != 200:
-                    logger.warning(f"{url}头像下载失败，状态码: {response.status}")
-                    return url
-                body = await response.read()
-            return await self._upload_avatar_image(body) or url
-        except Exception as e:
-            logger.exception(f"{url}头像下载或上传失败: {e}")
-            return url
+        resolved_thumb_url = thumb_url or original_url
+        if with_thumb:
+            return original_url, resolved_thumb_url
+        if only_thumb:
+            return resolved_thumb_url
+        return original_url
 
-    async def _upload_avatar_image(self, body: bytes) -> str | None:
+    def _validate_thumb_options(self, with_thumb: bool, only_thumb: bool) -> None:
         """
-        将头像压缩为最大 320px 的 WebP 并上传。
+        校验压缩图返回参数。
 
-        :param body: 原始头像二进制内容。
-        :return: 压缩头像地址，处理失败时返回 None。
+        :param with_thumb: 是否同时返回原图和压缩图地址。
+        :param only_thumb: 是否只返回压缩图地址。
+        :return: None。
+        :raises ValueError: 两个参数同时为 True 时抛出。
         """
-        try:
-            avatar_body = self._build_thumbnail(body, max_width=320, quality=82)
-            return await self.oss_util.upload_file(avatar_body, "avatar.webp", dir_type=DirType.AVATAR)
-        except Exception as e:
-            logger.exception(f"生成或上传压缩头像失败: {e}")
-            return None
+        if with_thumb and only_thumb:
+            raise ValueError("with_thumb 和 only_thumb 不能同时为 True")
 
-    async def _upload_image_with_thumb(self, body: bytes, file_name: str) -> tuple[str | None, str | None]:
+    def _build_thumbnail(self, body: bytes, max_width: int, quality: int = 82) -> bytes:
         """
-        上传图片原图，并为其生成 WebP 缩略图。
+        生成 WebP 压缩图。
 
-        :param body: 原图二进制内容。
-        :param file_name: 原图文件名。
-        :return: 原图地址和缩略图地址，缩略图失败时回退为原图地址。
-        """
-        cover_url = await self.oss_util.upload_file(body, file_name, dir_type=DirType.COVER)
-        if not cover_url:
-            return None, None
-        try:
-            thumb_body = self._build_thumbnail(body)
-            thumb_url = await self.oss_util.upload_file(
-                thumb_body, self._get_thumb_name(file_name), dir_type=DirType.THUMB
-            )
-            return cover_url, thumb_url or cover_url
-        except Exception as e:
-            logger.exception(f"生成或上传缩略图失败: {e}")
-            return cover_url, cover_url
-
-    def _build_thumbnail(self, body: bytes, max_width: int = 640, quality: int = 82) -> bytes:
-        """
-        生成 WebP 缩略图。
-
-        :param body: 原图二进制内容。
-        :param max_width: 缩略图最大宽度。
+        :param body: 原始图片二进制内容。
+        :param max_width: 压缩图最大宽度。
         :param quality: WebP 图片质量。
-        :return: 缩略图二进制内容。
+        :return: 压缩图二进制内容。
         """
         with Image.open(io.BytesIO(body)) as image:
             image = ImageOps.exif_transpose(image)
@@ -210,10 +264,10 @@ class PictureUtil:
 
     def _get_thumb_name(self, file_name: str) -> str:
         """
-        根据原图文件名生成缩略图文件名。
+        根据原图文件名生成压缩图文件名。
 
         :param file_name: 原图文件名。
-        :return: 缩略图文件名。
+        :return: 压缩图文件名。
         """
         name = file_name.rsplit("/", 1)[-1].split("?", 1)[0] or "image"
         stem = name.rsplit(".", 1)[0]
@@ -228,17 +282,13 @@ class PictureUtil:
         """
         if not url:
             return False
-        return self.is_img_url(url)
+        path = url.split("?", 1)[0].lower()
+        return path.endswith((".jpg", ".png", ".jpeg", ".gif", ".bmp", ".webp"))
 
-    def is_img_url(self, url: str):
-        return (
-            url.endswith(".jpg")
-            or url.endswith(".png")
-            or url.endswith(".jpeg")
-            or url.endswith(".gif")
-            or url.endswith(".bmp")
-            or url.endswith(".webp")
-        )
+    def _random_image_name(self) -> str:
+        """
+        返回随机图片上传时使用的基础文件名。
 
-    def _random_image_name(self):
-        return f"r.jpg"
+        :return: 图片文件名。
+        """
+        return "r.jpg"

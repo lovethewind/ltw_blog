@@ -1,12 +1,13 @@
 # @Time    : 2024/10/21 16:19
 # @Author  : frank
 # @File    : notice_service.py
+import asyncio
+
 from tortoise.functions import Count
 
 from apps.base.core.depend_inject import Component, Autowired
 from apps.base.enum.notice import NoticeTypeEnum
 from apps.base.models.notice import Notice
-from apps.base.utils.page_util import Pagination
 from apps.web.core.context_vars import ContextVars
 from apps.web.dao.user_dao import UserDao
 from apps.web.dto.notice_dto import NoticeDTO
@@ -32,7 +33,7 @@ class NoticeService:
                NoticeTypeEnum.__dict__["_member_map_"].values()}
         return ret
 
-    async def get_notice_list(self, notice_type: NoticeTypeEnum, current: int, size: int):
+    async def get_notice_list(self, notice_type: NoticeTypeEnum, current: int, size: int) -> dict:
         """
         获取消息列表
         :param notice_type:
@@ -42,10 +43,14 @@ class NoticeService:
         """
         user_id = ContextVars.token_user_id.get()
         q = Notice.filter(user_id=user_id, notice_type=notice_type)
-        page = await Pagination[NoticeDTO](current, size, q).execute()
-        for item in page.records:
+        total, notices = await asyncio.gather(
+            q.count(),
+            q.page(current, size).all(),
+        )
+        records = NoticeDTO.bulk_model_validate(notices)
+        for item in records:
             item.detail.from_user = await manager.get_user_info(item.detail.from_user_id, UserBaseInfoDTO)
-        return page
+        return {"total": total, "records": records}
 
     async def update(self, batch_vo: BatchVO):
         """

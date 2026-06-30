@@ -72,7 +72,7 @@ class UserCommonInfoDTO(BaseDTO):
     # 该用户所有文章的收藏数
     article_collect_count: int = 0
     # 用户配置
-    user_settings: UserSettingsType = None
+    user_settings: Optional[UserSettingsType] = None
 
 
 class WechatScanResultEnum(IntEnum):

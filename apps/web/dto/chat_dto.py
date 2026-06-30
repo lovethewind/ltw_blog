@@ -23,7 +23,7 @@ class GroupProfileDTO(BaseDTO):
     group_type: ChatGroupTypeEnum
 
 
-class GroupInfoDTO(BaseDTO):
+class GroupInfoDTO(GroupProfileDTO):
     id: int
     avatar: str
     name: str

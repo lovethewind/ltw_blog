@@ -13,7 +13,6 @@ from apps.base.enum.comment import CommentStatusEnum
 from apps.base.enum.notice import NoticeTypeEnum
 from apps.base.enum.user import UserSettingsEnum
 from apps.base.models.comment import Comment
-from apps.base.utils.page_util import PageResult, Pagination
 from apps.base.utils.redis_util import RedisUtil
 from apps.web.constant.sql_constant import SqlConstant
 from apps.web.core.context_vars import ContextVars
@@ -39,7 +38,7 @@ class CommentService:
     redis_util: RedisUtil = Autowired()
     kafka_util: KafkaUtil = Autowired()
 
-    async def list_comments(self, current: int, size: int, comment_query_vo: CommentQueryVO):
+    async def list_comments(self, current: int, size: int, comment_query_vo: CommentQueryVO) -> dict:
         """
         获取评论
         :param current:
@@ -55,7 +54,7 @@ class CommentService:
         total, first_level_comment_count, first_level_comments = await asyncio.gather(
             q.count(),
             q.filter(first_level_id=CommonConstant.TOP_LEVEL).count(),
-            q.filter(first_level_id=CommonConstant.TOP_LEVEL).offset((current - 1) * size).limit(size),
+            q.filter(first_level_id=CommonConstant.TOP_LEVEL).page(current, size),
         )
         first_level_comments = CommentDTO.bulk_model_validate(first_level_comments)
         comment_ids = []
@@ -95,11 +94,9 @@ class CommentService:
                 child.user = await manager.get_user_info(child.user_id, UserBaseInfoDTO)
                 if child.first_level_id != child.parent_id:  # 回复的是子评论
                     child.reply_user = await manager.get_user_info(child.reply_user_id, UserBaseInfoDTO)
-        page = PageResult(first_level_comments, total=total, current=current, size=size)
-        page.main_total = first_level_comment_count
-        return page
+        return {"total": total, "records": first_level_comments, "mainTotal": first_level_comment_count}
 
-    async def list_children_comment(self, comment_id: int, current: int, size: int):
+    async def list_children_comment(self, comment_id: int, current: int, size: int) -> dict:
         """
         获取评论的子评论
         :param comment_id:
@@ -109,14 +106,18 @@ class CommentService:
         """
         user_id = ContextVars.token_user_id.get()
         q = Comment.filter(first_level_id=comment_id, status=CommentStatusEnum.PASS)
-        page = await Pagination[CommentDTO](current, size, q).execute()
-        for comment in page.records:
+        total, comments = await asyncio.gather(
+            q.count(),
+            q.page(current, size).all(),
+        )
+        records = CommentDTO.bulk_model_validate(comments)
+        for comment in records:
             comment.has_like = await self.redis_util.User.has_like_comment(user_id, comment.id)
             comment.like_count = await self.redis_util.Comment.get_comment_like_count(comment.id)
             comment.user = await manager.get_user_info(comment.user_id, UserBaseInfoDTO)
             if comment.first_level_id != comment.parent_id:  # 回复的是子评论
                 comment.reply_user = await manager.get_user_info(comment.reply_user_id, UserBaseInfoDTO)
-        return page
+        return {"total": total, "records": records}
 
     async def add(self, comment_add_vo: CommentAddVO):
         """

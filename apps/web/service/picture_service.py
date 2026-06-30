@@ -1,6 +1,8 @@
 # @Time    : 2024/9/3 14:05
 # @Author  : frank
 # @File    : picture_service.py
+import asyncio
+
 from tortoise.expressions import Q
 from tortoise.transactions import in_transaction
 
@@ -11,7 +13,6 @@ from apps.base.enum.error_code import ErrorCode
 from apps.base.enum.picture import AlbumTypeEnum
 from apps.base.exception.my_exception import MyException
 from apps.base.models.picture import PictureAlbum, Picture
-from apps.base.utils.page_util import Pagination
 from apps.base.utils.picture_util import PictureUtil
 from apps.base.utils.redis_util import RedisUtil
 from apps.web.core.context_vars import ContextVars
@@ -39,7 +40,7 @@ class PictureService:
     redis_util: RedisUtil = Autowired()
     source_service: SourceService = Autowired()
 
-    async def list_album(self, current: int, size: int, is_user=False):
+    async def list_album(self, current: int, size: int, is_user: bool = False) -> dict:
         """
         获取图库列表
         :param current:
@@ -52,8 +53,11 @@ class PictureService:
             q = PictureAlbum.filter(~Q(status=CheckStatusEnum.REJECT), user_id=user_id)
         else:
             q = PictureAlbum.filter(album_type=AlbumTypeEnum.PUBLIC, status=CheckStatusEnum.PASS)
-        page = await Pagination[PictureAlbumDTO](current, size, q).execute()
-        return page
+        total, albums = await asyncio.gather(
+            q.count(),
+            q.page(current, size).all(),
+        )
+        return {"total": total, "records": PictureAlbumDTO.bulk_model_validate(albums)}
 
     async def add_album(self, picture_album_add_vo: PictureAlbumAddVO):
         """
@@ -121,7 +125,7 @@ class PictureService:
             await self.comment_dao.clear_comment(picture_ids, obj_type=ObjectTypeEnum.PICTURE)
             await q.delete()
 
-    async def list_picture(self, current: int, size: int, picture_query_vo: PictureQueryVO, is_user=False):
+    async def list_picture(self, current: int, size: int, picture_query_vo: PictureQueryVO, is_user: bool = False) -> dict:
         """
         查询图片列表
         :param current:
@@ -140,12 +144,16 @@ class PictureService:
             qa = qa.filter(id=picture_query_vo.album_id)
         album_ids = await qa.values_list("id", flat=True)
         qp = Picture.filter(album_id__in=album_ids, status=CheckStatusEnum.PASS)
-        page = await Pagination[PictureDTO](current, size, qp).execute()
-        for picture in page.records:
+        total, pictures = await asyncio.gather(
+            qp.count(),
+            qp.page(current, size).all(),
+        )
+        records = PictureDTO.bulk_model_validate(pictures)
+        for picture in records:
             picture.user = await manager.get_user_info(picture.user_id, UserBaseInfoDTO)
             picture.like_count = await self.redis_util.Picture.get_like_count(picture.id)
             picture.has_like = await self.redis_util.Picture.has_like(user_id, picture.id)
-        return page
+        return {"total": total, "records": records}
 
     async def add_picture(self, picture_add_vo: PictureAddVO):
         """

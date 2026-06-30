@@ -11,7 +11,6 @@ from apps.base.enum.error_code import ErrorCode
 from apps.base.enum.user import UserSettingsEnum
 from apps.base.exception.my_exception import MyException
 from apps.base.models.article import Article
-from apps.base.utils.page_util import PageResult, Pagination
 from apps.base.utils.picture_util import PictureUtil
 from apps.base.utils.redis_util import RedisUtil
 from apps.web.core.context_vars import ContextVars
@@ -36,7 +35,7 @@ class ArticleService:
     user_dao: UserDao = Autowired()
     article_dao: ArticleDao = Autowired()
 
-    async def list_articles(self, current: int, size: int, article_query_vo: ArticleQueryVO):
+    async def list_articles(self, current: int, size: int, article_query_vo: ArticleQueryVO) -> dict:
         """
         分页及查询获取文章列表
         :param current:
@@ -62,7 +61,7 @@ class ArticleService:
                     article_query_vo.user_id, UserSettingsEnum.ALLOW_VIEW_MY_ARTICLE
                 )
                 if user_setting_value is False:
-                    return PageResult[ArticleListDTO](current=current, size=size, total=0, records=[])
+                    return {"total": 0, "records": []}
                 q = q.filter(status=ArticleStatusEnum.PUBLISHED)
             elif article_query_vo.status:
                 q = q.filter(status=article_query_vo.status)
@@ -79,10 +78,12 @@ class ArticleService:
             case OrderTypeEnum.BY_CREATE_TIME_ASC:
                 q = q.order_by("id")
             case _:
-                q = q.offset((current - 1) * size).limit(size)
-        page = await Pagination[ArticleListDTO](current, size, q, q_count=q_count).execute()
-        page.records = await self.article_dao.get_article_detail_by_ids(articles=page.records)
-        return page
+                q = q.page(current, size)
+        total = await q_count.count()
+        if article_query_vo.order_type == OrderTypeEnum.BY_CREATE_TIME_ASC:
+            q = q.page(current, size)
+        records = await self.article_dao.get_article_detail_by_ids(articles=await q.all())
+        return {"total": total, "records": records}
 
     async def add(self, article_vo: ArticleVO) -> int:
         """
@@ -95,7 +96,7 @@ class ArticleService:
         article = Article(**article_vo.model_dump())
         article.user_id = user_id
         if not article.cover:
-            article.cover, article.cover_thumb = await self.picture_util.get_random_cover_urls()
+            article.cover, article.cover_thumb = await self.picture_util.get_random_img_url(with_thumb=True)
         if not article.cover_thumb:
             article.cover_thumb = article.cover
         async with in_transaction():

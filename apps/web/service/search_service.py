@@ -6,7 +6,6 @@ from tortoise.expressions import Q
 from apps.base.core.depend_inject import Component, Autowired
 from apps.base.models.article import Article
 from apps.base.models.user import User
-from apps.base.utils.page_util import PageResult, Pagination
 from apps.base.utils.redis_util import RedisUtil
 from apps.web.core.es.constant.es_constant import ESConstant
 from apps.web.core.es.utils.es_util import ESUtil
@@ -23,7 +22,7 @@ class SearchService:
     es_util: ESUtil = Autowired()
     article_dao: ArticleDao = Autowired()
 
-    async def get_es_article_list(self, article_search_vo: ArticleSearchVO):
+    async def get_es_article_list(self, article_search_vo: ArticleSearchVO) -> dict:
         """
         ES根据关键词查找文章
         :param article_search_vo:
@@ -50,13 +49,11 @@ class SearchService:
                 else:
                     record["content"] = record["content"][:100]
                 records.append(ArticleListDTO.model_validate(record))
-        page = PageResult[ArticleListDTO](
-            records=records, total=total, current=article_search_vo.current_page, size=article_search_vo.page_size
-        )
+        page = {"total": total, "records": records}
         await self.redis_util.ES.cache_article_search_result(article_search_vo, page)
         return page
 
-    async def get_user_list(self, search_vo: UserSearchVO):
+    async def get_user_list(self, search_vo: UserSearchVO) -> dict:
         """
         搜索用户
         :param search_vo:
@@ -67,8 +64,10 @@ class SearchService:
             q = q.filter(Q(id=int(search_vo.keyword)) | Q(nickname__icontains=search_vo.keyword))
         else:
             q = q.filter(nickname__icontains=search_vo.keyword)
-        page = await Pagination[UserBaseInfoDTO](search_vo.current_page, search_vo.page_size, q).execute()
-        return page
+        current = search_vo.current_page if search_vo.current_page > 0 else 1
+        size = search_vo.page_size if search_vo.page_size > 0 else 10
+        total, users = await q.count(), await q.page(current, size).all()
+        return {"total": total, "records": UserBaseInfoDTO.bulk_model_validate(users)}
 
     async def get_daily_hot_words_list(self):
         """
@@ -78,7 +77,7 @@ class SearchService:
         ret = await self.redis_util.ES.get_daily_hot_words_list()
         return ret
 
-    async def get_recommend_article_list(self, article_recommend_vo: ArticleRecommendVO):
+    async def get_recommend_article_list(self, article_recommend_vo: ArticleRecommendVO) -> dict:
         """
         获取相关文章的推荐文章
         :param article_recommend_vo:
@@ -96,11 +95,11 @@ class SearchService:
             for item in resp["hits"]["hits"]:
                 record = item["_source"]
                 records.append(ArticleBaseInfoDTO.model_validate(record))
-        page = PageResult[ArticleBaseInfoDTO](records=records, total=total, current=1, size=10)
+        page = {"total": total, "records": records}
         await self.redis_util.ES.cache_recommend_article_list(article_recommend_vo.article_id, page)
         return page
 
-    async def init_article_index(self):
+    async def init_article_index(self) -> None:
         """
         初始化article索引
         :return:
@@ -110,11 +109,13 @@ class SearchService:
             index=ESConstant.ARTICLE_INDEX, mappings=ESConstant.ARTICLE_INDEX_MAPPING
         )
         await self.redis_util.ES.clear_article_search_result()
-        current = 1
         q = Article.filter(is_deleted=False)
-        page = await Pagination[ArticleListDTO](current, 500, q).execute()
-        for i in range(page.pages):
-            records = await self.article_dao.get_article_detail_by_ids(articles=page.records)
+        size = 500
+        total = await q.count()
+        pages = (total + size - 1) // size
+        for i in range(pages):
+            articles = await q.page(i + 1, size).all()
+            records = await self.article_dao.get_article_detail_by_ids(articles=articles)
             ret = []
             for record in records:
                 record.content = HtmlUtil.remove_html_tags(record.content)

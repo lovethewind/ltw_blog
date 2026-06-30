@@ -3,11 +3,12 @@
 # @File    : es.py
 import json
 from datetime import datetime, timedelta
+from typing import Any
 
 from redis.asyncio import Redis
 
 from apps.base.constant.redis_constant import RedisConstant
-from apps.base.utils.page_util import PageResult
+from apps.web.dto.base_dto import BaseDTO
 from apps.web.vo.search_vo import ArticleSearchVO
 from apps.web.dto.article_dto import ArticleListDTO, ArticleBaseInfoDTO
 
@@ -38,7 +39,7 @@ class ESMethod:
         key = f"{RedisConstant.HOT_KEYWORDS_SEARCH_KEY}:{datetime.today().date()}"
         return await self._redis.zrevrange(key, 0, 10)
 
-    async def get_recommend_article_list(self, article_id: int) -> PageResult[ArticleListDTO]:
+    async def get_recommend_article_list(self, article_id: int) -> dict[str, Any] | None:
         """
         获取相关文章的推荐文章
         :param article_id:
@@ -47,10 +48,11 @@ class ESMethod:
         key = f"{RedisConstant.RECOMMEND_ARTICLE_SEARCH_KEY}:{article_id}"
         ret = await self._redis.get(key)
         if ret:
-            ret = PageResult[ArticleBaseInfoDTO](**json.loads(ret))
+            ret = json.loads(ret)
+            ret["records"] = ArticleBaseInfoDTO.bulk_model_validate(ret.get("records", []))
         return ret
 
-    async def cache_recommend_article_list(self, article_id: int, result: PageResult[ArticleListDTO]):
+    async def cache_recommend_article_list(self, article_id: int, result: dict[str, Any]) -> None:
         """
         缓存相关文章的推荐文章
         :param article_id:
@@ -58,9 +60,9 @@ class ESMethod:
         :return:
         """
         key = f"{RedisConstant.RECOMMEND_ARTICLE_SEARCH_KEY}:{article_id}"
-        await self._redis.set(key, result.model_dump_json(), timedelta(minutes=30))
+        await self._redis.set(key, self._dump_page_result(result), timedelta(minutes=30))
 
-    async def cache_article_search_result(self, article_search_vo: ArticleSearchVO, result: PageResult[ArticleListDTO]):
+    async def cache_article_search_result(self, article_search_vo: ArticleSearchVO, result: dict[str, Any]) -> None:
         """
         缓存关键字搜索结果
         :param article_search_vo:
@@ -68,7 +70,7 @@ class ESMethod:
         :return:
         """
         key = f"{RedisConstant.KEYWORDS_SEARCH_ARTICLE_CACHE_KEY}:{article_search_vo.keyword.strip()}:{article_search_vo.current_page}:{article_search_vo.page_size}:{article_search_vo.order_type}"
-        await self._redis.set(key, result.model_dump_json(), timedelta(minutes=5))
+        await self._redis.set(key, self._dump_page_result(result), timedelta(minutes=5))
 
     async def clear_article_search_result(self):
         """
@@ -80,7 +82,7 @@ class ESMethod:
             return
         await self._redis.delete(*keywords)
 
-    async def get_article_search_result(self, article_search_vo: ArticleSearchVO) -> PageResult[ArticleListDTO]:
+    async def get_article_search_result(self, article_search_vo: ArticleSearchVO) -> dict[str, Any] | None:
         """
         获取关键字搜索结果
         :param article_search_vo:
@@ -89,5 +91,20 @@ class ESMethod:
         key = f"{RedisConstant.KEYWORDS_SEARCH_ARTICLE_CACHE_KEY}:{article_search_vo.keyword.strip()}:{article_search_vo.current_page}:{article_search_vo.page_size}:{article_search_vo.order_type}"
         ret = await self._redis.get(key)
         if ret:
-            ret = PageResult[ArticleListDTO](**json.loads(ret))
+            ret = json.loads(ret)
+            ret["records"] = ArticleListDTO.bulk_model_validate(ret.get("records", []))
         return ret
+
+    @staticmethod
+    def _dump_page_result(result: dict[str, Any]) -> str:
+        """
+        序列化分页结果缓存。
+
+        :param result: 分页结果。
+        :return: JSON 字符串。
+        """
+        records = [
+            record.model_dump(mode="json") if isinstance(record, BaseDTO) else record
+            for record in result.get("records", [])
+        ]
+        return json.dumps({"total": result.get("total", 0), "records": records}, ensure_ascii=False)

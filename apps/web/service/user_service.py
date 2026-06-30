@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import logging
 
 import pytz
 from starlette.requests import Request
@@ -26,8 +27,6 @@ from apps.base.utils.random_util import RandomUtil
 from apps.base.utils.redis_util import RedisUtil
 from apps.base.utils.wechat_util import WechatUtil
 from apps.web.core.context_vars import ContextVars
-from apps.web.core.event.event_name import EventName
-from apps.web.core.event.event_server import EventServer
 from apps.web.core.kafka.util import KafkaUtil
 from apps.web.dao.chat_dao import ChatDao
 from apps.web.dao.user_dao import UserDao
@@ -57,6 +56,8 @@ from apps.web.vo.user_vo import (
     WechatBindParamsVO,
 )
 
+logger = logging.getLogger(__name__)
+
 
 @Component()
 @RefreshScope("app.web")
@@ -69,7 +70,6 @@ class UserService:
     kafka_util: KafkaUtil = Autowired()
     MAX_ERROR_TIMES: str = Value("app.web.max-error-login-times")
     UNBLOCK_LOGIN_URL: str = Value("app.web.unblock-login-url")
-    event_server = EventServer.get_instance()
 
     async def login(self, login_vo: LoginVO):
         """
@@ -122,7 +122,7 @@ class UserService:
                     raise MyException(ErrorCode.ACCOUNT_IS_FORBIDDEN)
                 raise MyException(ErrorCode.PASSWORD_ERROR)
         elif not await self.redis_util.VerifyCode.check_verify_code(
-                login_vo.mobile, login_vo.code, VerifyCodeTypeEnum.LOGIN
+            login_vo.mobile, login_vo.code, VerifyCodeTypeEnum.LOGIN
         ):
             # 验证码登录
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
@@ -223,7 +223,7 @@ class UserService:
         user.summary = "这个人很懒，什么都没有留下"
         user.uid, user.avatar, user.background = await asyncio.gather(
             self.redis_util.User.gen_uid(),
-            self.picture_util.get_random_avatar_url(),
+            self.picture_util.get_random_avatar_url(only_thumb=True),
             self.picture_util.get_random_img_url(),
         )
         user.gender = GenderEnum.SECRET
@@ -238,7 +238,7 @@ class UserService:
         if not register_vo.email or not register_vo.code:
             raise MyException(ErrorCode.PARAM_ERROR)
         if not await self.redis_util.VerifyCode.check_verify_code(
-                register_vo.email, register_vo.code, VerifyCodeTypeEnum.REGISTER
+            register_vo.email, register_vo.code, VerifyCodeTypeEnum.REGISTER
         ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
         exist_user = await User.filter(username=register_vo.username, email=register_vo.email).exists()
@@ -264,7 +264,7 @@ class UserService:
         if not register_vo.mobile or not register_vo.code:
             raise MyException(ErrorCode.PARAM_ERROR)
         if not await self.redis_util.VerifyCode.check_verify_code(
-                register_vo.mobile, register_vo.code, VerifyCodeTypeEnum.REGISTER
+            register_vo.mobile, register_vo.code, VerifyCodeTypeEnum.REGISTER
         ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
         exist_user = await User.filter(mobile=register_vo.mobile).exists()
@@ -356,7 +356,7 @@ class UserService:
         else:
             raise MyException(ErrorCode.PARAM_ERROR)
         if not await self.redis_util.VerifyCode.check_verify_code(
-                check, forget_password_vo.code, VerifyCodeTypeEnum.FIND_PASSWORD
+            check, forget_password_vo.code, VerifyCodeTypeEnum.FIND_PASSWORD
         ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
         await asyncio.gather(
@@ -379,13 +379,13 @@ class UserService:
                     raise MyException(ErrorCode.PASSWORD_ERROR)
             case ChangePasswordTypeEnum.EMAIL_CODE:
                 if not await self.redis_util.VerifyCode.check_verify_code(
-                        user.email, change_password_vo.code, VerifyCodeTypeEnum.CHANGE_PASSWORD
+                    user.email, change_password_vo.code, VerifyCodeTypeEnum.CHANGE_PASSWORD
                 ):
                     raise MyException(ErrorCode.CODE_VERIFY_ERROR)
                 await self.redis_util.VerifyCode.delete_verify_code(user.email, VerifyCodeTypeEnum.CHANGE_PASSWORD)
             case ChangePasswordTypeEnum.MOBILE_CODE:
                 if not await self.redis_util.VerifyCode.check_verify_code(
-                        user.mobile, change_password_vo.code, VerifyCodeTypeEnum.CHANGE_PASSWORD
+                    user.mobile, change_password_vo.code, VerifyCodeTypeEnum.CHANGE_PASSWORD
                 ):
                     raise MyException(ErrorCode.CODE_VERIFY_ERROR)
                 await self.redis_util.VerifyCode.delete_verify_code(user.mobile, VerifyCodeTypeEnum.CHANGE_PASSWORD)
@@ -397,14 +397,19 @@ class UserService:
         user.password = EncryptUtil.encrypt(change_password_vo.password)
         await user.save(update_fields=("password",))
 
-    async def update_user_info(self, user_update_vo: UserUpdateVO):
+    async def update_user_info(self, user_update_vo: UserUpdateVO) -> None:
         """
-        更新用户信息
-        :param user_update_vo:
+        更新用户信息并刷新 Redis 资料缓存。
+
+        :param user_update_vo: 用户资料更新参数
+        :return: None
         """
         user_id = ContextVars.token_user_id.get()
         await User.filter(id=user_id).update(**user_update_vo.model_dump(exclude_none=True))
-        self.event_server.emit(EventName.UPDATE_USER_INFO, user_id)
+        try:
+            await manager.update_user_info(user_id)
+        except Exception as e:
+            logger.exception(f"用户[{user_id}]Redis 资料缓存更新失败 {e}")
 
     async def save_user_settings(self, user_settings: UserSettingsType):
         """
@@ -448,12 +453,12 @@ class UserService:
             raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
         # 验证旧邮箱验证码
         if user.email and not await self.redis_util.VerifyCode.check_verify_code(
-                user.email, change_email_bind_vo.old_code, VerifyCodeTypeEnum.CHANGE_BIND
+            user.email, change_email_bind_vo.old_code, VerifyCodeTypeEnum.CHANGE_BIND
         ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
         # 验证新邮箱验证码
         if not await self.redis_util.VerifyCode.check_verify_code(
-                change_email_bind_vo.email, change_email_bind_vo.code, VerifyCodeTypeEnum.CHANGE_BIND
+            change_email_bind_vo.email, change_email_bind_vo.code, VerifyCodeTypeEnum.CHANGE_BIND
         ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
         user.email = change_email_bind_vo.email
@@ -478,12 +483,12 @@ class UserService:
             raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
         # 验证旧手机号验证码
         if user.mobile and not await self.redis_util.VerifyCode.check_verify_code(
-                user.mobile, change_mobile_bind_vo.old_code, VerifyCodeTypeEnum.CHANGE_BIND
+            user.mobile, change_mobile_bind_vo.old_code, VerifyCodeTypeEnum.CHANGE_BIND
         ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
         # 验证新手机号验证码
         if not await self.redis_util.VerifyCode.check_verify_code(
-                change_mobile_bind_vo.mobile, change_mobile_bind_vo.code, VerifyCodeTypeEnum.CHANGE_BIND
+            change_mobile_bind_vo.mobile, change_mobile_bind_vo.code, VerifyCodeTypeEnum.CHANGE_BIND
         ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
         user.mobile = change_mobile_bind_vo.mobile

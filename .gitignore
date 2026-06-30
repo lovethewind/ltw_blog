@@ -163,7 +163,7 @@ cython_debug/
 .DS_Store
 .idea/
 logs
-test
+tests
 nacos-data
 AGENTS.md
 CLAUDE.md

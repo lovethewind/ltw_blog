@@ -1,15 +1,14 @@
 # @Time    : 2024/11/4 14:54
 # @Author  : frank
 # @File    : chat_dao.py
-from datetime import datetime
-from typing import TypeVar, Iterable
+from typing import TypeVar
 
 from tortoise.transactions import in_transaction
 
 from apps.base.core.depend_inject import Component, Autowired
 from apps.base.enum.action import ObjectTypeEnum, ActionTypeEnum
 from apps.base.models.action import Action
-from apps.base.models.chat import ChatGroup, ChatMessage, Conversation, Contact
+from apps.base.models.chat import ChatGroup, ChatGroupMember, ChatMessage, Conversation, Contact
 from apps.web.constant.sql_constant import SqlConstant
 from apps.web.dao.common_dao import CommonDao
 from apps.web.dto.base_dto import BaseDTO
@@ -30,15 +29,18 @@ class ChatDao:
         :return: 群信息
         """
         group_list = await ChatGroup.filter(id=group_id).first()
+        if not group_list:
+            return {}
         return GroupInfoDTO.model_validate(group_list, from_attributes=True)
 
     async def get_group_members(self, group_id: int) -> list[int]:
         """
-        获取群成员id列表
-        :param group_id: 群id
-        :return: 群成员id列表
+        获取群成员 ID 列表。
+
+        :param group_id: 群组 ID
+        :return: 群成员 ID 列表
         """
-        return await ChatGroup.filter(id=group_id).values_list("member_ids", flat=True)
+        return await ChatGroupMember.filter(group_id=group_id).values_list("user_id", flat=True)
 
     async def get_conversation_last_message(self, records: list[Conversation]):
         """
@@ -48,9 +50,12 @@ class ChatDao:
         """
         if not records:
             return {}
-        temp_table = ", ".join(tuple(
-            f"ROW{(item.conversation_id, item.last_clear_time.strftime("%Y-%m-%d %H:%M:%S") if item.last_clear_time else 0)}"
-            for item in records))
+        temp_table = ", ".join(
+            tuple(
+                f"ROW{(item.conversation_id, item.last_clear_time.strftime("%Y-%m-%d %H:%M:%S") if item.last_clear_time else 0)}"
+                for item in records
+            )
+        )
         sql = SqlConstant.CONVERSATION_LAST_MESSAGE_LIST % (temp_table,)
         ret = await self.common_dao.execute_sql_dto(sql, clazz=ChatMessageDTO)
         return {item.conversation_id: item for item in ret}
@@ -80,8 +85,13 @@ class ChatDao:
         :param contact_id:
         :return:
         """
-        return await Action.filter(user_id=user_id, obj_id=contact_id, obj_type=ObjectTypeEnum.USER,
-                                   action_type=ActionTypeEnum.BLACKLIST, status=True).exists()
+        return await Action.filter(
+            user_id=user_id,
+            obj_id=contact_id,
+            obj_type=ObjectTypeEnum.USER,
+            action_type=ActionTypeEnum.BLACKLIST,
+            status=True,
+        ).exists()
 
     async def delete_contact(self, user_id: int, contact_id: int):
         """

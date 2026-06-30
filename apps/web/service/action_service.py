@@ -10,7 +10,6 @@ from apps.base.enum.action import ActionTypeEnum, ObjectTypeEnum
 from apps.base.enum.notice import NoticeTypeEnum
 from apps.base.enum.user import UserSettingsEnum
 from apps.base.models.action import Action
-from apps.base.utils.page_util import PageResult, Pagination
 from apps.base.utils.redis_util import RedisUtil
 from apps.web.core.context_vars import ContextVars
 from apps.web.core.kafka.util import KafkaUtil
@@ -19,8 +18,7 @@ from apps.web.dao.chat_dao import ChatDao
 from apps.web.dao.comment_dao import CommentDao
 from apps.web.dao.picture_dao import PictureDao
 from apps.web.dao.user_dao import UserDao
-from apps.web.dto.action_dto import ActionDTO, BlckListDTO, UserFollowInfoDTO
-from apps.web.dto.base_dto import BaseDTO
+from apps.web.dto.action_dto import BlckListDTO, UserFollowInfoDTO
 from apps.web.dto.chat_dto import WSMessageDTO
 from apps.web.dto.notice_dto import NoticeSaveDTO
 from apps.web.dto.user_dto import UserBaseInfoDTO, UserSimpleInfoDTO
@@ -44,7 +42,7 @@ class ActionService:
             size: int,
             action_query_vo: ActionQueryVO,
             action_type_detail_query_vo: ActionTypeDetailQueryVO,
-    ):
+    ) -> dict:
         """
         获取行为列表
         :param current:
@@ -62,7 +60,7 @@ class ActionService:
             user_id = action_query_vo.user_id or action_query_vo.obj_id
             user_setting_value = await self.user_dao.get_user_setting_value(user_id, setting_key)
             if user_setting_value is False:
-                return PageResult[ActionDTO](current=current, size=size, total=0, records=[])
+                return {"total": 0, "records": []}
         page = await self._get_action_type_data(current, size, action_query_vo, action_type_detail_query_vo)
         return page
 
@@ -72,7 +70,7 @@ class ActionService:
             size: int,
             action_query_vo: ActionQueryVO,
             action_type_detail_query_vo: ActionTypeDetailQueryVO,
-    ):
+    ) -> dict:
         """
         获取用户行为列表
         :param current:
@@ -85,7 +83,7 @@ class ActionService:
         if (action_query_vo.user_id and action_query_vo.user_id != user_id) or (
                 action_query_vo.obj_id and action_query_vo.obj_id != user_id
         ):
-            return PageResult[ActionDTO](current=current, size=size, total=0, records=[])
+            return {"total": 0, "records": []}
         page = await self._get_action_type_data(current, size, action_query_vo, action_type_detail_query_vo)
         return page
 
@@ -186,7 +184,7 @@ class ActionService:
             size: int,
             action_query_vo: ActionQueryVO,
             action_type_detail_query_vo: ActionTypeDetailQueryVO,
-    ):
+    ) -> dict:
         """
         获取行为的实际数据
         :param current:
@@ -196,38 +194,48 @@ class ActionService:
         :return:
         """
         login_user_id = ContextVars.token_user_id.get()
-        page = PageResult[BaseDTO](records=[], total=0, current=current, size=size)
+        total = 0
+        records = []
         q = Action.filter(**action_query_vo.model_dump(exclude_none=True), status=True)
         if action_query_vo.action_type == ActionTypeEnum.COLLECT:
-            page = await Pagination[Action](current, size, q).execute()
+            total, actions = await asyncio.gather(
+                q.count(),
+                q.page(current, size).all(),
+            )
             # todo 支持查询
-            article_ids = [action.obj_id for action in page.records]
-            action_time_dict = {action.obj_id: action.create_time for action in page.records}
-            page.records = await self.article_dao.get_article_detail_by_ids(article_ids=article_ids)
-            for dto in page.records:
+            article_ids = [action.obj_id for action in actions]
+            action_time_dict = {action.obj_id: action.create_time for action in actions}
+            records = await self.article_dao.get_article_detail_by_ids(article_ids=article_ids)
+            for dto in records:
                 dto.create_time = action_time_dict.get(dto.id)  # 获取收藏时间
         elif action_query_vo.action_type == ActionTypeEnum.FOLLOW:
-            page = await Pagination[Action](current, size, q).execute()
+            total, actions = await asyncio.gather(
+                q.count(),
+                q.page(current, size).all(),
+            )
             # 查询关注或者粉丝列表
-            user_ids = [action.obj_id if action_query_vo.user_id else action.user_id for action in page.records]
+            user_ids = [action.obj_id if action_query_vo.user_id else action.user_id for action in actions]
             ret = []
             for user_id in user_ids:
                 dto = await manager.get_user_info(user_id, UserFollowInfoDTO)
                 dto.is_followed = await self.redis_util.Action.is_followed(login_user_id, dto.id)
                 dto.is_my_fans = await self.redis_util.Action.is_fans(login_user_id, dto.id)
                 ret.append(dto)
-            page.records = ret
+            records = ret
         elif action_query_vo.action_type == ActionTypeEnum.BLACKLIST:
             q = q.filter(user_id=login_user_id)
-            page = await Pagination[Action](current, size, q).execute()
+            total, actions = await asyncio.gather(
+                q.count(),
+                q.page(current, size).all(),
+            )
             ret = []
-            for record in page.records:
+            for record in actions:
                 dto = BlckListDTO.model_validate(record, from_attributes=True)
                 dto.user_profile = await manager.get_user_info(dto.obj_id, UserSimpleInfoDTO)
                 ret.append(dto)
-            page.records = ret
+            records = ret
 
-        return page
+        return {"total": total, "records": records}
 
     async def _action_type_cache(self, action: Action):
         """
