@@ -2,7 +2,6 @@ import asyncio
 import datetime
 import logging
 
-import pytz
 from starlette.requests import Request
 from tortoise import transactions
 from tortoise.expressions import Q
@@ -146,7 +145,7 @@ class UserService:
         """
         user_restriction_dto = UserRestrictionDTO()
         user_restrictions = await UserRestriction.filter(user_id=user.id, is_cancel=False).all()
-        now = datetime.datetime.now(tz=pytz.timezone("Asia/Shanghai"))
+        now = datetime.datetime.now()
         update_list = []
         for user_restriction in user_restrictions:
             if not (user_restriction.is_forever or user_restriction.start_time <= now <= user_restriction.end_time):

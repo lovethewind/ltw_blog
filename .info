@@ -1,11 +1,11 @@
 {
   "project": "ltw-blog",
   "version": "0.0.1",
-  "generatedAt": "2026-06-30T19:09:47+08:00",
+  "generatedAt": "2026-06-30T19:45:26+08:00",
   "branch": "master",
-  "sourceCommit": "0b7a2c710b6c259dbd11e09a54d20524dd1b5bd8",
-  "sourceCommitShort": "0b7a2c7",
-  "sourceCommitTime": "2026-06-30T19:01:10+08:00",
+  "sourceCommit": "42c1ec7df6a60fda71f821086d7da3d9df70a236",
+  "sourceCommitShort": "42c1ec7",
+  "sourceCommitTime": "2026-06-30T19:09:47+08:00",
   "sourceCommitSubject": "feat:优化ws；优化分页查询；添加.info",
   "note": "pre-commit 生成；sourceCommit 为提交前 HEAD，不能表示本次提交自己的 hash。"
 }

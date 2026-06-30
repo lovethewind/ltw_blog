@@ -2,6 +2,7 @@ import importlib
 import json
 import pkgutil
 import time
+from copy import deepcopy
 from contextlib import asynccontextmanager
 from json import JSONDecodeError
 from typing import AsyncGenerator, Optional
@@ -80,8 +81,11 @@ class CreateApp:
         """
         初始化数据库连接
         """
+        tortoise_config = deepcopy(testing_config if self.testing else tortoise_config)
+        tortoise_config.setdefault("use_tz", False)
+        tortoise_config.setdefault("timezone", "Asia/Shanghai")
         if self.testing:
-            register_tortoise(self.app, testing_config)
+            register_tortoise(self.app, tortoise_config)
             return
         register_tortoise(self.app, tortoise_config)
 

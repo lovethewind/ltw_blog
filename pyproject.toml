@@ -45,6 +45,11 @@ package = false
 [tool.black]
 line-length = 120
 
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
