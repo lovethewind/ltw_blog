@@ -6,8 +6,8 @@ from datetime import datetime
 from typing import Any, Optional
 
 from apps.base.enum.chat import (
-    ChatMessageFailReasonEnum,
     ChatGroupTypeEnum,
+    ChatMessageFailReasonEnum,
     ChatMessageTypeEnum,
     ContactApplyStatusEnum,
     ContactTypeEnum,

@@ -151,9 +151,13 @@ class PictureService:
             qp.page(current, size).all(),
         )
         records = PictureDTO.bulk_model_validate(pictures)
+        picture_comment_count_map = await self.comment_dao.get_comment_count_map(
+            [picture.id for picture in records], ObjectTypeEnum.PICTURE
+        )
         for picture in records:
             picture.user = await manager.get_user_info(picture.user_id, UserBaseInfoDTO)
             picture.like_count = await self.redis_util.Picture.get_like_count(picture.id)
+            picture.comment_count = picture_comment_count_map.get(picture.id, 0)
             picture.has_like = await self.redis_util.Picture.has_like(user_id, picture.id)
         return {"total": total, "records": records}
 

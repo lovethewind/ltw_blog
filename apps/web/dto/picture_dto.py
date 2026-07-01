@@ -33,4 +33,5 @@ class PictureDTO(BaseDTO):
     create_time: datetime
     user: Optional[UserBaseInfoDTO] = None
     like_count: int = 0
+    comment_count: int = 0
     has_like: bool = False

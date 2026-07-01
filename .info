@@ -1,11 +1,11 @@
 {
   "project": "ltw-blog",
   "version": "0.0.1",
-  "generatedAt": "2026-07-01T15:26:17+08:00",
+  "generatedAt": "2026-07-01T19:30:26+08:00",
   "branch": "master",
-  "sourceCommit": "09e06415c52f017ee8a74b224de4e8f3c30008c6",
-  "sourceCommitShort": "09e0641",
-  "sourceCommitTime": "2026-07-01T10:50:28+08:00",
-  "sourceCommitSubject": "feat:格式化代码",
+  "sourceCommit": "7a6db3d619bccf962bd60c392ab447254a454029",
+  "sourceCommitShort": "7a6db3d",
+  "sourceCommitTime": "2026-07-01T15:26:17+08:00",
+  "sourceCommitSubject": "feat:优化聊天功能",
   "note": "pre-commit 生成；sourceCommit 为提交前 HEAD，不能表示本次提交自己的 hash。"
 }
