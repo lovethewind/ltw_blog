@@ -49,3 +49,5 @@ class RedisConstant:
 
     # 聊天相关
     CONVERSATION_UNREAD_COUNT_MAP_KEY = "conversation_unread_count_map"
+    USER_CONTACT_SET_KEY = "user_contact_set"
+    USER_BLACKLIST_SET_KEY = "user_blacklist_set"

@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from apps.base.enum.chat import (
+    ChatMessageFailReasonEnum,
     ChatGroupTypeEnum,
     ChatMessageTypeEnum,
     ContactApplyStatusEnum,
@@ -66,6 +67,7 @@ class ChatSendMessageDTO(BaseDTO):
     attach: Optional[list[AttachDTO]] = []
     temp_id: str
     status: MessageSendStatusEnum
+    fail_reason: Optional[ChatMessageFailReasonEnum] = None
 
 
 class ChatMessageDTO(BaseDTO):

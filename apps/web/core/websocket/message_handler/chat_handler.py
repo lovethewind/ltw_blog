@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 from starlette.websockets import WebSocket
 
 from apps.base.core.depend_inject import GetBean
-from apps.base.enum.chat import ContactTypeEnum, MessageSendStatusEnum, WSMessageTypeEnum
+from apps.base.enum.chat import ChatMessageFailReasonEnum, ContactTypeEnum, MessageSendStatusEnum, WSMessageTypeEnum
 from apps.web.config.logger_config import logger
 from apps.web.core.websocket.message_handler.base_handler import BaseMessageHandler
 from apps.web.dto.chat_dto import (
@@ -59,6 +59,9 @@ class ChatMessageHandler(BaseMessageHandler):
             from apps.web.dao.chat_dao import ChatDao
 
             chat_dao = GetBean(ChatDao)
+            if await self._is_direct_message_blocked(chat_dao, message.message):
+                await self._publish_fail_message(manager, message, user_id, ChatMessageFailReasonEnum.BLOCKED)
+                return
             save_message = ChatSaveMessageDTO.model_validate(message.message, from_attributes=True)
             db_message = await chat_dao.save_message(save_message)
             result = WSMessageDTO[ChatMessageDTO](
@@ -71,9 +74,43 @@ class ChatMessageHandler(BaseMessageHandler):
                 return
             await self._handle_direct_message(manager, result)
         except Exception as exc:
-            message.message.status = MessageSendStatusEnum.FAIL
-            await manager.publish_message(message, [user_id])
+            await self._publish_fail_message(manager, message, user_id, ChatMessageFailReasonEnum.SYSTEM_ERROR)
             logger.exception(f"聊天消息发送失败: {exc}")
+
+    async def _publish_fail_message(
+        self,
+        manager: WebSocketManager,
+        message: WSMessageDTO[ChatSendMessageDTO],
+        user_id: int,
+        fail_reason: ChatMessageFailReasonEnum,
+    ) -> None:
+        """
+        发布聊天消息发送失败回执。
+
+        :param manager: WebSocket Manager
+        :param message: 聊天发送消息
+        :param user_id: 已认证用户 ID
+        :param fail_reason: 失败原因
+        :return: None
+        """
+        message.message.status = MessageSendStatusEnum.FAIL
+        message.message.fail_reason = fail_reason
+        await manager.publish_message(message, [user_id])
+
+    async def _is_direct_message_blocked(self, chat_dao: Any, message: ChatSendMessageDTO) -> bool:
+        """
+        判断单聊消息是否被双方黑名单关系拦截。
+
+        :param chat_dao: 聊天 DAO
+        :param message: 聊天发送消息
+        :return: 是否被黑名单关系拦截
+        """
+        if message.contact_type != ContactTypeEnum.USER:
+            return False
+        return await chat_dao.is_blocked(message.user_id, message.contact_id) or await chat_dao.is_blocked(
+            message.contact_id,
+            message.user_id,
+        )
 
     async def _handle_direct_message(
         self,

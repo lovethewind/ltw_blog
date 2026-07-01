@@ -220,10 +220,12 @@ class ChatService:
                 await Contact.create(
                     user_id=record.contact_id, contact_id=record.user_id, contact_type=record.contact_type
                 )
+                await self.redis_util.Chat.add_contact(record.contact_id, record.user_id)
                 if record.contact_type == ContactTypeEnum.USER:
                     await Contact.create(
                         user_id=record.user_id, contact_id=record.contact_id, contact_type=record.contact_type
                     )
+                    await self.redis_util.Chat.add_contact(record.user_id, record.contact_id)
             # 操作后页面通知对方
             message = WSMessageDTO[FriendApplyMessageDTO](
                 message_type=WSMessageTypeEnum.FRIEND_APPLY,

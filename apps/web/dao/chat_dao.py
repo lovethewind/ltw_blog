@@ -7,8 +7,10 @@ from tortoise.transactions import in_transaction
 
 from apps.base.core.depend_inject import Autowired, Component
 from apps.base.enum.action import ActionTypeEnum, ObjectTypeEnum
+from apps.base.enum.chat import ContactTypeEnum
 from apps.base.models.action import Action
 from apps.base.models.chat import ChatGroup, ChatGroupMember, ChatMessage, Contact, Conversation
+from apps.base.utils.redis_util import RedisUtil
 from apps.web.constant.sql_constant import SqlConstant
 from apps.web.dao.common_dao import CommonDao
 from apps.web.dto.base_dto import BaseDTO
@@ -20,6 +22,7 @@ T = TypeVar("T", bound=BaseDTO)
 @Component()
 class ChatDao:
     common_dao: CommonDao = Autowired()
+    redis_util: RedisUtil = Autowired()
     conversation_cache: dict[int, set[str]] = {}
 
     async def get_group_info(self, group_id: int):
@@ -69,39 +72,54 @@ class ChatDao:
         await self._check_create_conversation(message)
         return await ChatMessage.create(**message.model_dump())
 
-    async def is_friend(self, user_id: int, contact_id: int):
+    async def is_friend(self, user_id: int, contact_id: int) -> bool:
         """
-        是否是好友
-        :param user_id:
-        :param contact_id:
-        :return:
-        """
-        return await Contact.filter(user_id=user_id, contact_id=contact_id).exists()
+        判断用户是否已添加指定好友，优先读取 Redis 缓存。
 
-    async def is_blocked(self, user_id: int, contact_id: int):
+        :param user_id: 用户 ID
+        :param contact_id: 联系人 ID
+        :return: 是否是好友
         """
-        是否已拉黑
-        :param user_id:
-        :param contact_id:
-        :return:
+        if await self.redis_util.Chat.has_contact_cache(user_id):
+            return await self.redis_util.Chat.is_friend(user_id, contact_id)
+        contact_ids = await Contact.filter(user_id=user_id, contact_type=ContactTypeEnum.USER).values_list(
+            "contact_id",
+            flat=True,
+        )
+        await self.redis_util.Chat.refresh_user_contacts(user_id, contact_ids)
+        return contact_id in contact_ids
+
+    async def is_blocked(self, user_id: int, contact_id: int) -> bool:
         """
-        return await Action.filter(
+        判断用户是否已拉黑指定联系人，优先读取 Redis 缓存。
+
+        :param user_id: 用户 ID
+        :param contact_id: 联系人 ID
+        :return: 是否已拉黑
+        """
+        if await self.redis_util.Chat.has_blacklist_cache(user_id):
+            return await self.redis_util.Chat.is_blocked(user_id, contact_id)
+        contact_ids = await Action.filter(
             user_id=user_id,
-            obj_id=contact_id,
             obj_type=ObjectTypeEnum.USER,
             action_type=ActionTypeEnum.BLACKLIST,
             status=True,
-        ).exists()
+        ).values_list("obj_id", flat=True)
+        await self.redis_util.Chat.refresh_user_blacklist(user_id, contact_ids)
+        return contact_id in contact_ids
 
-    async def delete_contact(self, user_id: int, contact_id: int):
+    async def delete_contact(self, user_id: int, contact_id: int) -> None:
         """
-        删除联系人
-        :param user_id:
-        :param contact_id:
-        :return:
+        删除双方联系人并同步已存在的 Redis 联系人缓存。
+
+        :param user_id: 用户 ID
+        :param contact_id: 联系人 ID
+        :return: None
         """
         await Contact.filter(user_id=user_id, contact_id=contact_id).delete()
         await Contact.filter(user_id=contact_id, contact_id=user_id).delete()
+        await self.redis_util.Chat.remove_contact(user_id, contact_id)
+        await self.redis_util.Chat.remove_contact(contact_id, user_id)
 
     async def _check_create_conversation(self, message: ChatSaveMessageDTO):
         """

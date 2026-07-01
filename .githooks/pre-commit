@@ -9,3 +9,5 @@ fi
 
 "$PYTHON" scripts/update_info.py
 git add .info
+
+make format

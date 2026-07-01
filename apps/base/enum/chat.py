@@ -55,6 +55,11 @@ class MessageSendStatusEnum(IntEnum):
     DELETE = 4
 
 
+class ChatMessageFailReasonEnum(IntEnum):
+    BLOCKED = 1
+    SYSTEM_ERROR = 2
+
+
 class ContactApplyStatusEnum(IntEnum):
     PENDING = 1
     AGREE = 2

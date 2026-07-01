@@ -1,11 +1,11 @@
 {
   "project": "ltw-blog",
   "version": "0.0.1",
-  "generatedAt": "2026-07-01T10:50:28+08:00",
+  "generatedAt": "2026-07-01T15:26:17+08:00",
   "branch": "master",
-  "sourceCommit": "3ef6f5c69359bffb188161d507d1d550f31ecba4",
-  "sourceCommitShort": "3ef6f5c",
-  "sourceCommitTime": "2026-07-01T10:50:16+08:00",
-  "sourceCommitSubject": "feat:优化tortoise初始化",
+  "sourceCommit": "09e06415c52f017ee8a74b224de4e8f3c30008c6",
+  "sourceCommitShort": "09e0641",
+  "sourceCommitTime": "2026-07-01T10:50:28+08:00",
+  "sourceCommitSubject": "feat:格式化代码",
   "note": "pre-commit 生成；sourceCommit 为提交前 HEAD，不能表示本次提交自己的 hash。"
 }

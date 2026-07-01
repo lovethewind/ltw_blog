@@ -254,3 +254,5 @@ class ActionService:
             await self.redis_util.Article.add_or_remove_article_collect(action.user_id, action.obj_id)
         elif action.action_type == ActionTypeEnum.FOLLOW:
             await self.redis_util.Action.add_or_remove_follow(action.user_id, action.obj_id)
+        elif action.action_type == ActionTypeEnum.BLACKLIST and action.obj_type == ObjectTypeEnum.USER:
+            await self.redis_util.Chat.sync_blacklist(action.user_id, action.obj_id, action.status)
