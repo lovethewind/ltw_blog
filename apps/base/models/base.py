@@ -1,13 +1,12 @@
-from tortoise import fields, Model
+from tortoise import fields
 from tortoise.manager import Manager
 from tortoise.models import Model, ModelMeta
 from tortoise.queryset import QuerySet
-from typing_extensions import Self
 
 from apps.base.utils.snowflake import SnowflakeIDGenerator
 
 
-class BaseQuerySet[T](QuerySet[T]):
+class BaseQuerySet(QuerySet):
     """
     项目通用查询集。
     """

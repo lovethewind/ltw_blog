@@ -13,19 +13,18 @@ from typing import Iterable
 
 import aiohttp
 from PIL import Image, ImageOps
-from tortoise import Tortoise
 
 PROJECT_PATH = Path(__file__).resolve().parents[3]
 if str(PROJECT_PATH) not in sys.path:
     sys.path.append(str(PROJECT_PATH))
 
-from apps.base.core.depend_inject import GetBean, GetValue  # noqa: E402
+from apps.base.core.depend_inject import GetBean  # noqa: E402
+from apps.base.core.tortoise import tortoise_context  # noqa: E402
 from apps.base.enum.oss import DirType  # noqa: E402
 from apps.base.models.article import Article  # noqa: E402
 from apps.base.models.picture import Picture  # noqa: E402
 from apps.base.models.source import Source  # noqa: E402
 from apps.base.utils.oss_util import OssUtil  # noqa: E402
-from apps.web.config.server_config import init_container_config  # noqa: E402
 
 
 class ThumbnailTarget:
@@ -234,11 +233,9 @@ async def main() -> None:
     :return: None。
     """
     args = parse_args()
-    init_container_config()
-    await Tortoise.init(config=GetValue("app.db.tortoise"))
-    oss_util = GetBean(OssUtil)
-    total = 0
-    try:
+    async with tortoise_context():
+        oss_util = GetBean(OssUtil)
+        total = 0
         async with aiohttp.ClientSession() as session:
             for target in iter_targets():
                 count = await process_target(
@@ -255,8 +252,6 @@ async def main() -> None:
         print(f"合计: {total}")
         if not args.execute:
             print("当前为 dry-run，传入 --execute 才会上传缩略图并更新数据库。")
-    finally:
-        await Tortoise.close_connections()
 
 
 if __name__ == "__main__":

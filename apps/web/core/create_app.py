@@ -2,7 +2,6 @@ import importlib
 import json
 import pkgutil
 import time
-from copy import deepcopy
 from contextlib import asynccontextmanager
 from json import JSONDecodeError
 from typing import AsyncGenerator, Optional
@@ -14,9 +13,9 @@ from starlette.exceptions import HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
-from tortoise.contrib.fastapi import register_tortoise
 
 from apps.base.core.depend_inject import GetBean, GetValue
+from apps.base.core.tortoise import register_app_tortoise
 from apps.base.enum.error_code import ErrorCode
 from apps.base.exception.my_exception import MyException
 from apps.base.utils.response_util import ResponseUtil
@@ -81,13 +80,7 @@ class CreateApp:
         """
         初始化数据库连接
         """
-        tortoise_config = deepcopy(testing_config if self.testing else tortoise_config)
-        tortoise_config.setdefault("use_tz", False)
-        tortoise_config.setdefault("timezone", "Asia/Shanghai")
-        if self.testing:
-            register_tortoise(self.app, tortoise_config)
-            return
-        register_tortoise(self.app, tortoise_config)
+        register_app_tortoise(self.app, tortoise_config, testing_config, self.testing)
 
     def _register_router(self, router_name: str = "router", prefix: str = GetValue("app.context-path")):
         """
