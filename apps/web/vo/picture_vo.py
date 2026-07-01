@@ -12,6 +12,7 @@ from apps.web.vo.base_vo import BaseVO
 class PictureQueryVO(BaseVO):
     user_id: Optional[int] = Field(default=None)
     album_id: Optional[int] = Field(default=None)
+    sort_type: Optional[str] = Field(default=None)
 
 
 class PictureAddVO(BaseVO):
