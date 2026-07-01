@@ -3,10 +3,10 @@
 # @File    : search_controller.py
 from fastapi import APIRouter
 
-from apps.base.core.depend_inject import Controller, Autowired
+from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 from apps.web.service.search_service import SearchService
-from apps.web.vo.search_vo import ArticleSearchVO, ArticleRecommendVO, UserSearchVO
+from apps.web.vo.search_vo import ArticleRecommendVO, ArticleSearchVO, UserSearchVO
 
 router = APIRouter(prefix="/search", tags=["搜索模块"])
 

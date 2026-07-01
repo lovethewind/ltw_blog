@@ -10,6 +10,7 @@ class WebsiteStatusEnum(IntEnum):
     CHECK(2, "审核中"),
     REJECT(3, "拒绝");
     """
+
     PASS = 1
     CHECK = 2
     REJECT = 3

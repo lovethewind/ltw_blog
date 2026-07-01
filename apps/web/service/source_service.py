@@ -7,8 +7,9 @@ from apps.base.models.source import Source
 @Component()
 class SourceService:
 
-    async def check_and_update_source_status(self, old_urls: str | Iterable[str], new_urls: str | Iterable[str],
-                                             user_id: int):
+    async def check_and_update_source_status(
+        self, old_urls: str | Iterable[str], new_urls: str | Iterable[str], user_id: int
+    ):
         """
         检查并更新资源为已删除状态
         :param old_urls:

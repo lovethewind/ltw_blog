@@ -1,9 +1,9 @@
 # @Time    : 2024/9/1 19:28
 # @Author  : frank
 # @File    : oss_service.py
-from apps.base.core.depend_inject import Component, Autowired
+from apps.base.core.depend_inject import Autowired, Component
 from apps.base.models.source import Source
-from apps.base.utils.oss_util import OssUtil, DirType
+from apps.base.utils.oss_util import DirType, OssUtil
 from apps.web.core.context_vars import ContextVars
 from apps.web.vo.oss_vo import GetSignatureVO
 
@@ -19,7 +19,9 @@ class OssService:
         :return:
         """
         user_id = ContextVars.token_user_id.get()
-        signature_result = await self.oss_util.get_signature(DirType[get_signature_vo.dir_type.upper()], get_signature_vo.file_name)
+        signature_result = await self.oss_util.get_signature(
+            DirType[get_signature_vo.dir_type.upper()], get_signature_vo.file_name
+        )
         source = Source()
         source.user_id = user_id
         source.url = signature_result.url

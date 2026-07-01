@@ -5,7 +5,7 @@ from typing import Optional
 
 from fastapi import Query
 
-from apps.base.enum.chat import ContactTypeEnum, ContactApplyStatusEnum
+from apps.base.enum.chat import ContactApplyStatusEnum, ContactTypeEnum
 from apps.web.vo.base_vo import BaseVO
 
 

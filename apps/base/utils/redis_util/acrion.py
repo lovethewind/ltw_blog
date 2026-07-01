@@ -54,12 +54,12 @@ class ActionMethod:
             await asyncio.gather(
                 self._redis.srem(key, str(follower_id)),
                 self._redis.hincrby(RedisConstant.USER_FOLLOWER_COUNT_MAP_KEY, str(user_id), -1),  # 我关注的数量减1
-                self._redis.hincrby(RedisConstant.USER_FANS_COUNT_MAP_KEY, str(follower_id), -1)  # 该用户的粉丝数量减1
+                self._redis.hincrby(RedisConstant.USER_FANS_COUNT_MAP_KEY, str(follower_id), -1),  # 该用户的粉丝数量减1
             )
             return False
         await asyncio.gather(
             self._redis.sadd(key, str(follower_id)),
             self._redis.hincrby(RedisConstant.USER_FOLLOWER_COUNT_MAP_KEY, str(user_id)),  # 我关注的数量加1
-            self._redis.hincrby(RedisConstant.USER_FANS_COUNT_MAP_KEY, str(follower_id))  # 该用户的粉丝数量加1
+            self._redis.hincrby(RedisConstant.USER_FANS_COUNT_MAP_KEY, str(follower_id)),  # 该用户的粉丝数量加1
         )
         return True

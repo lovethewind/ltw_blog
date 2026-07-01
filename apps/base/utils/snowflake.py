@@ -1,6 +1,7 @@
 import logging
-import time
 import random
+import time
+
 logger = logging.getLogger(__name__)
 
 
@@ -39,7 +40,9 @@ class Snowflake:
         else:
             self.sequence = 0
         self.last_timestamp = timestamp
-        snow_id = ((timestamp - self.epoch) << 22) | (self.data_center_id << 17) | (self.worker_id << 12) | self.sequence
+        snow_id = (
+            ((timestamp - self.epoch) << 22) | (self.data_center_id << 17) | (self.worker_id << 12) | self.sequence
+        )
         logger.info(f"=====check snowflake id: {(timestamp, self.last_timestamp, self.sequence)} snow_id: {snow_id}")
         return snow_id
 

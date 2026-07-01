@@ -11,6 +11,7 @@ class LoggerConfig:
     """
     日志配置
     """
+
     CONFIG_FILE_NAME = "logger_config.yaml"
     config: dict
     _cached = False

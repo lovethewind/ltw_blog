@@ -1,16 +1,12 @@
-from collections.abc import Iterable
-from typing import Type
-
 from apps.base.core.depend_inject import Component
 from apps.base.enum.user import UserSettingsEnum
 from apps.base.models.user import User, UserSettings
-from apps.web.dto.user_dto import UserBaseInfoDTO, UserCommonInfoDTO
+from apps.web.dto.user_dto import UserCommonInfoDTO
 
 
 @Component()
 class UserDao:
-    common_user_settings = [UserSettingsEnum.ALLOW_VIEW_MY_FOLLOW,
-                            UserSettingsEnum.ALLOW_VIEW_MY_COLLECT]
+    common_user_settings = [UserSettingsEnum.ALLOW_VIEW_MY_FOLLOW, UserSettingsEnum.ALLOW_VIEW_MY_COLLECT]
 
     async def get_user_info(self, user_id: int):
         """

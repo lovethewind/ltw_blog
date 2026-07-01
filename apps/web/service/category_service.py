@@ -2,7 +2,7 @@
 # @Author  : frank
 # @File    : category_service.py
 
-from apps.base.core.depend_inject import Component, Autowired
+from apps.base.core.depend_inject import Autowired, Component
 from apps.base.models.category import Category
 from apps.web.dao.category_dao import CategoryDao
 from apps.web.dto.category_dto import CategoryDTO

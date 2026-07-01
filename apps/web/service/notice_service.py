@@ -5,7 +5,7 @@ import asyncio
 
 from tortoise.functions import Count
 
-from apps.base.core.depend_inject import Component, Autowired
+from apps.base.core.depend_inject import Autowired, Component
 from apps.base.enum.notice import NoticeTypeEnum
 from apps.base.models.notice import Notice
 from apps.web.core.context_vars import ContextVars
@@ -26,11 +26,16 @@ class NoticeService:
         :return:
         """
         user_id = ContextVars.token_user_id.get()
-        count_info_list = await Notice.filter(user_id=user_id, is_read=False).group_by("notice_type").annotate(
-            count=Count("id")).values("notice_type", "count")
+        count_info_list = (
+            await Notice.filter(user_id=user_id, is_read=False)
+            .group_by("notice_type")
+            .annotate(count=Count("id"))
+            .values("notice_type", "count")
+        )
         count_info_map = {item["notice_type"]: item["count"] for item in count_info_list}
-        ret = {item.value: count_info_map.get(item.value, 0) for item in
-               NoticeTypeEnum.__dict__["_member_map_"].values()}
+        ret = {
+            item.value: count_info_map.get(item.value, 0) for item in NoticeTypeEnum.__dict__["_member_map_"].values()
+        }
         return ret
 
     async def get_notice_list(self, notice_type: NoticeTypeEnum, current: int, size: int) -> dict:

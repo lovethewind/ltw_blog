@@ -12,8 +12,9 @@ class Message(BaseModel):
     address = fields.CharField(max_length=100, description="地址")
     content = fields.TextField(description="留言内容")
     parent_id = fields.BigIntField(description="父id", default=CommonConstant.TOP_LEVEL)
-    reply_user_id = fields.BigIntField(description="回复的评论所属用户id, 便于查询组装结果",
-                                       default=CommonConstant.TOP_LEVEL)
+    reply_user_id = fields.BigIntField(
+        description="回复的评论所属用户id, 便于查询组装结果", default=CommonConstant.TOP_LEVEL
+    )
     first_level_id = fields.BigIntField(description="第一层级评论id, 方便查询", default=CommonConstant.TOP_LEVEL)
 
     class Meta:

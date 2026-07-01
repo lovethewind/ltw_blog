@@ -28,6 +28,7 @@ class ActionTypeDetailQueryVO(BaseVO):
     """
     具体行为查询需要用到的参数
     """
+
     keyword: Optional[str] = Field(default=None)
     user_id: Optional[int] = Field(default=None)
     tag_id: Optional[int] = Field(default=None)

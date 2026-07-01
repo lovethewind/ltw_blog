@@ -42,9 +42,6 @@ dependencies = [
 [tool.uv]
 package = false
 
-[tool.black]
-line-length = 120
-
 [tool.pytest.ini_options]
 addopts = [
     "--import-mode=importlib",
@@ -52,6 +49,34 @@ addopts = [
 
 [dependency-groups]
 dev = [
+    "autoflake>=2.3.3",
+    "black>=26.5.1",
+    "isort>=8.0.1",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
 ]
+
+[tool.black]
+line-length = 120
+target-version = ["py314"]
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | migrations
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+skip = [".venv", "migrations", "build", "dist"]
+
+[tool.autoflake]
+remove-all-unused-imports = true
+remove-unused-variables = true
+ignore-init-module-imports = true
+recursive = true
+exclude = ".venv,migrations,build,dist"

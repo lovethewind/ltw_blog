@@ -58,7 +58,7 @@ def _cbv(router: APIRouter, cls: Type[T], *urls: str, instance: Any = None) -> T
     return cls
 
 
-def _init_cbv(cls: Type[Any], instance: Any = None) :
+def _init_cbv(cls: Type[Any], instance: Any = None):
     """
     Idempotently modifies the provided `cls`, performing the following modifications:
     * The `__init__` function is updated to set any class-annotated dependencies as instance attributes
@@ -91,7 +91,7 @@ def _init_cbv(cls: Type[Any], instance: Any = None) :
     if not instance or hasattr(cls, INCLUDE_INIT_PARAMS_KEY):
         new_signature = old_signature.replace(parameters=new_parameters)
 
-    def new_init(self: Any, *args: Any, **kwargs: Any) :
+    def new_init(self: Any, *args: Any, **kwargs: Any):
         for dep_name in dependency_names:
             dep_value = kwargs.pop(dep_name)
             setattr(self, dep_name, dep_value)
@@ -106,7 +106,7 @@ def _init_cbv(cls: Type[Any], instance: Any = None) :
     setattr(cls, CBV_CLASS_KEY, True)
 
 
-def _register_endpoints(router: APIRouter, cls: Type[T], *urls: str) :
+def _register_endpoints(router: APIRouter, cls: Type[T], *urls: str):
     cbv_router = APIRouter()
     function_members = inspect.getmembers(cls, inspect.isfunction)
     for url in urls:
@@ -141,7 +141,7 @@ def _register_endpoints(router: APIRouter, cls: Type[T], *urls: str) :
     router.include_router(cbv_router)
 
 
-def _allocate_routes_by_method_name(router: APIRouter, url: str, function_members: List[Tuple[str, Any]]) :
+def _allocate_routes_by_method_name(router: APIRouter, url: str, function_members: List[Tuple[str, Any]]):
     existing_routes_endpoints: List[Tuple[Any, str]] = [
         (route.endpoint, route.path) for route in router.routes if isinstance(route, APIRoute)
     ]
@@ -167,7 +167,7 @@ def _allocate_routes_by_method_name(router: APIRouter, url: str, function_member
                 api_resource(func)
 
 
-def _update_cbv_route_endpoint_signature(cls: Type[T], route: Union[Route, WebSocketRoute]) :
+def _update_cbv_route_endpoint_signature(cls: Type[T], route: Union[Route, WebSocketRoute]):
     """
     Fixes the endpoint signature for a cbv route to ensure FastAPI performs dependency injection properly.
     """

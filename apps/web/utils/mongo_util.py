@@ -2,8 +2,8 @@ import asyncio
 import datetime
 
 from bson import ObjectId
-from pydantic import BaseModel, Field, field_validator
 from motor.motor_asyncio import AsyncIOMotorClient
+from pydantic import BaseModel, Field, field_validator
 
 
 class UserInfo(BaseModel):
@@ -40,5 +40,5 @@ async def main():
     print(tt)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())

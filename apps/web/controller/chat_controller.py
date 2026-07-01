@@ -3,12 +3,18 @@
 # @File    : chat_controller.py
 from fastapi import APIRouter, Depends
 
-from apps.base.core.depend_inject import Controller, Autowired
-from apps.base.enum.chat import ContactApplyStatusEnum, ContactTypeEnum
+from apps.base.core.depend_inject import Autowired, Controller
+from apps.base.enum.chat import ContactTypeEnum
 from apps.base.utils.response_util import ResponseUtil
 from apps.web.service.chat_service import ChatService
-from apps.web.vo.chat_vo import ConversationVO, HistoryMessageVO, ConversationUpdateVO, ContactApplyVO, \
-    HandleContactApplyVO, ContactVO
+from apps.web.vo.chat_vo import (
+    ContactApplyVO,
+    ContactVO,
+    ConversationUpdateVO,
+    ConversationVO,
+    HandleContactApplyVO,
+    HistoryMessageVO,
+)
 
 router = APIRouter(prefix="/chat", tags=["聊天模块"])
 

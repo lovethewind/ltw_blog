@@ -23,9 +23,9 @@ class TokenUtil:
         return payload.get("username")
 
 
-if __name__ == '__main__':
-    import string
+if __name__ == "__main__":
     import random
+    import string
 
     pwd = "".join(random.choices(string.ascii_letters + string.digits, k=8))
     print(pwd)

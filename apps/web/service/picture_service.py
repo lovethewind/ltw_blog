@@ -6,13 +6,13 @@ import asyncio
 from tortoise.expressions import Q
 from tortoise.transactions import in_transaction
 
-from apps.base.core.depend_inject import Component, Autowired
+from apps.base.core.depend_inject import Autowired, Component
 from apps.base.enum.action import ObjectTypeEnum
 from apps.base.enum.common import CheckStatusEnum
 from apps.base.enum.error_code import ErrorCode
 from apps.base.enum.picture import AlbumTypeEnum
 from apps.base.exception.my_exception import MyException
-from apps.base.models.picture import PictureAlbum, Picture
+from apps.base.models.picture import Picture, PictureAlbum
 from apps.base.utils.picture_util import PictureUtil
 from apps.base.utils.redis_util import RedisUtil
 from apps.web.core.context_vars import ContextVars
@@ -24,10 +24,10 @@ from apps.web.service.source_service import SourceService
 from apps.web.utils.ws_util import manager
 from apps.web.vo.batch_vo import BatchVO
 from apps.web.vo.picture_vo import (
-    PictureQueryVO,
     PictureAddVO,
     PictureAlbumAddVO,
     PictureAlbumUpdateVO,
+    PictureQueryVO,
     PictureUpdateVO,
 )
 
@@ -86,8 +86,8 @@ class PictureService:
         if not picture_album:
             raise MyException(ErrorCode.PICTURE_ALBUM_NOT_EXIST)
         if (
-                picture_album.album_type == AlbumTypeEnum.PUBLIC
-                and picture_album_update_vo.album_type == AlbumTypeEnum.PRIVATE
+            picture_album.album_type == AlbumTypeEnum.PUBLIC
+            and picture_album_update_vo.album_type == AlbumTypeEnum.PRIVATE
         ):
             # 无法公开转私密
             raise MyException(ErrorCode.PICTURE_ALBUM_IS_PUBLIC)
@@ -125,7 +125,9 @@ class PictureService:
             await self.comment_dao.clear_comment(picture_ids, obj_type=ObjectTypeEnum.PICTURE)
             await q.delete()
 
-    async def list_picture(self, current: int, size: int, picture_query_vo: PictureQueryVO, is_user: bool = False) -> dict:
+    async def list_picture(
+        self, current: int, size: int, picture_query_vo: PictureQueryVO, is_user: bool = False
+    ) -> dict:
         """
         查询图片列表
         :param current:
@@ -186,7 +188,7 @@ class PictureService:
             if not is_exists:
                 raise MyException(ErrorCode.PICTURE_ALBUM_NOT_EXIST)
         if picture_update_vo.url and not (
-                picture_update_vo.width or picture_update_vo.height or picture_update_vo.size
+            picture_update_vo.width or picture_update_vo.height or picture_update_vo.size
         ):
             raise MyException(ErrorCode.PARAM_ERROR)
         picture = await Picture.filter(

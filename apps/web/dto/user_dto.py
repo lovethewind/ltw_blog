@@ -8,12 +8,17 @@ from apps.web.dto.base_dto import BaseDTO
 
 UserSettingsType: TypeAlias = dict[UserSettingsEnum, str | bool]
 
+
 class UserRestrictionDTO(BaseDTO):
     user_forbidden: bool = False
     comment_forbidden: bool = False
 
 
 class UserInfoDTO(BaseDTO):
+    """
+    用户自身查询时返回的信息
+    """
+
     id: int
     uid: int
     username: str
@@ -37,6 +42,10 @@ class UserInfoDTO(BaseDTO):
 
 
 class UserCommonInfoDTO(BaseDTO):
+    """
+    任何人查询用户时返回的信息
+    """
+
     id: int
     uid: int
     nickname: str
@@ -75,6 +84,29 @@ class UserCommonInfoDTO(BaseDTO):
     user_settings: Optional[UserSettingsType] = None
 
 
+class UserBaseInfoDTO(BaseDTO):
+    """
+    公用查询用户的基本信息，包括签名等
+    """
+
+    id: Optional[int] = None
+    nickname: Optional[str] = None
+    avatar: Optional[str] = None
+    address: Optional[str] = None
+    gender: Optional[GenderEnum] = None
+    summary: Optional[str] = None
+
+
+class UserSimpleInfoDTO(BaseDTO):
+    """
+    用户极简信息，用于如文章列表里的头像昵称显示
+    """
+
+    id: Optional[int] = None
+    nickname: Optional[str] = None
+    avatar: Optional[str] = None
+
+
 class WechatScanResultEnum(IntEnum):
     # 0:未扫码 1:未绑定 2:已绑定 3:已过期
     NOT_SCAN = 0
@@ -86,18 +118,3 @@ class WechatScanResultEnum(IntEnum):
 class WechatScanResultDTO(BaseDTO):
     status: WechatScanResultEnum = WechatScanResultEnum.NOT_SCAN
     token: Optional[str] = None
-
-
-class UserBaseInfoDTO(BaseDTO):
-    id: Optional[int] = None
-    nickname: Optional[str] = None
-    avatar: Optional[str] = None
-    address: Optional[str] = None
-    gender: Optional[GenderEnum] = None
-    summary: Optional[str] = None
-
-
-class UserSimpleInfoDTO(BaseDTO):
-    id: Optional[int] = None
-    nickname: Optional[str] = None
-    avatar: Optional[str] = None

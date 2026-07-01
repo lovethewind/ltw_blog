@@ -3,7 +3,7 @@
 # @File    : config_controller.py
 from fastapi import APIRouter
 
-from apps.base.core.depend_inject import Controller, Autowired
+from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 from apps.web.service.config_service import ConfigService
 

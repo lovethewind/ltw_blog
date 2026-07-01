@@ -28,5 +28,4 @@ class ArticleRecommendVO(BaseVO):
     count: int = 0
 
 
-class UserSearchVO(BaseSearchVO):
-    ...
+class UserSearchVO(BaseSearchVO): ...

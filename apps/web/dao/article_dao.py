@@ -6,7 +6,7 @@ from typing import Type
 
 from typing_extensions import TypeVar
 
-from apps.base.core.depend_inject import Component, Autowired
+from apps.base.core.depend_inject import Autowired, Component
 from apps.base.models.article import Article
 from apps.base.utils.redis_util import RedisUtil
 from apps.web.dao.user_dao import UserDao
@@ -33,9 +33,12 @@ class ArticleDao:
         ret = ret[0] if ret else ret
         return ret
 
-    async def get_article_detail_by_ids(self, article_ids: list[int] = None,
-                                        articles: list[Article | ArticleListDTO] = None,
-                                        clazz: Type[T] = ArticleListDTO) -> list[T]:
+    async def get_article_detail_by_ids(
+        self,
+        article_ids: list[int] = None,
+        articles: list[Article | ArticleListDTO] = None,
+        clazz: Type[T] = ArticleListDTO,
+    ) -> list[T]:
         """
         根据文章id/文章获取文章基本信息
         :param article_ids:
@@ -50,16 +53,11 @@ class ArticleDao:
         ret = []
         for item in articles:
             record = clazz.model_validate(item, from_attributes=True)
-            (
-                record.view_count,
-                record.like_count,
-                record.collect_count,
-                record.comment_count
-            ) = await asyncio.gather(
+            record.view_count, record.like_count, record.collect_count, record.comment_count = await asyncio.gather(
                 self.redis_util.Article.get_article_view_count(record.id),
                 self.redis_util.Article.get_article_like_count(record.id),
                 self.redis_util.Article.get_article_collect_count(record.id),
-                self.redis_util.Article.get_article_comment_count(record.id)
+                self.redis_util.Article.get_article_comment_count(record.id),
             )
             record.user = await manager.get_user_info(item.user_id, UserBaseInfoDTO)
             ret.append(record)

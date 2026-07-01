@@ -10,17 +10,21 @@ class Comment(BaseModel):
     """
     评论功能
     """
+
     user_id = fields.BigIntField(description="评论用户id")
     obj_id = fields.BigIntField(description="评论对象id")
-    obj_type = fields.IntEnumField(ObjectTypeEnum, default=ObjectTypeEnum.ARTICLE,
-                                   description="评论对象类型 1:文章 5:图片")
+    obj_type = fields.IntEnumField(
+        ObjectTypeEnum, default=ObjectTypeEnum.ARTICLE, description="评论对象类型 1:文章 5:图片"
+    )
     parent_id = fields.BigIntField(description="父id", default=CommonConstant.TOP_LEVEL)
-    reply_user_id = fields.BigIntField(description="回复的评论所属用户id, 便于查询组装结果",
-                                       default=CommonConstant.TOP_LEVEL)
+    reply_user_id = fields.BigIntField(
+        description="回复的评论所属用户id, 便于查询组装结果", default=CommonConstant.TOP_LEVEL
+    )
     first_level_id = fields.BigIntField(description="第一层级评论id, 方便查询", default=CommonConstant.TOP_LEVEL)
     content = fields.TextField(description="评论内容")
-    status = fields.IntEnumField(CommentStatusEnum, description="评论状态 1:通过 2:审核中 3:已删除",
-                                 default=CommentStatusEnum.PASS)
+    status = fields.IntEnumField(
+        CommentStatusEnum, description="评论状态 1:通过 2:审核中 3:已删除", default=CommentStatusEnum.PASS
+    )
 
     class Meta:
         table = "t_comment"

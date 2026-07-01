@@ -2,6 +2,7 @@
 # @Author  : frank
 # @File    : sms_constant.py
 
+
 class SmsConstant:
     TYPE_LOGIN = "SMS_205880159"
 

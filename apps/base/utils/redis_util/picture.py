@@ -3,6 +3,7 @@
 # @File    : picture.py
 
 import asyncio
+
 from redis.asyncio import Redis
 
 from apps.base.constant.redis_constant import RedisConstant
@@ -49,12 +50,12 @@ class PictureMethod:
             await asyncio.gather(
                 self._redis.srem(key, picture_id),
                 self._redis.zincrby(RedisConstant.PICTURE_LIKE_COUNT_ZSET_KEY, int(picture_id), -1),
-                self._redis.hincrby(RedisConstant.PICTURE_LIKE_COUNT_MAP_KEY, picture_id, -1)  # 数量减1
+                self._redis.hincrby(RedisConstant.PICTURE_LIKE_COUNT_MAP_KEY, picture_id, -1),  # 数量减1
             )
             return False
         await asyncio.gather(
             self._redis.sadd(key, picture_id),
             self._redis.zincrby(RedisConstant.PICTURE_LIKE_COUNT_ZSET_KEY, int(picture_id), 1),
-            self._redis.hincrby(RedisConstant.PICTURE_LIKE_COUNT_MAP_KEY, picture_id)  # 数量加1
+            self._redis.hincrby(RedisConstant.PICTURE_LIKE_COUNT_MAP_KEY, picture_id),  # 数量加1
         )
         return True

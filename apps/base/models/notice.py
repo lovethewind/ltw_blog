@@ -11,6 +11,7 @@ class Notice(BaseModel):
     """
     通知消息
     """
+
     user_id = fields.BigIntField(description="用户id")
     title = fields.CharField(max_length=255, description="标题")
     content = fields.TextField(description="内容", default="")

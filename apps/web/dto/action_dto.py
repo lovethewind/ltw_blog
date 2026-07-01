@@ -14,6 +14,7 @@ class ActionDTO(BaseDTO):
     obj_id: int
     obj_type: ObjectTypeEnum
 
+
 class UserFollowInfoDTO(BaseDTO):
     id: int
     nickname: str
@@ -24,6 +25,7 @@ class UserFollowInfoDTO(BaseDTO):
     is_followed: bool = False
     # 该用户是否我(登录用户)的粉丝
     is_my_fans: bool = False
+
 
 class BlckListDTO(BaseDTO):
     id: int

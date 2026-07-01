@@ -2,6 +2,7 @@
 # @Author  : frank
 # @File    : sql_constant.py
 
+
 class SqlConstant:
     # 查出每条第一级评论的二级评论，默认前3条
     FIRST_LEVEL_COMMENT_3_CHILDREN_COMMENT = """

@@ -6,7 +6,7 @@ from urllib.parse import quote_plus
 import alibabacloud_oss_v2 as oss
 import alibabacloud_oss_v2.aio as oss_aio
 
-from apps.base.core.depend_inject import Component, Value, RefreshScope, logger
+from apps.base.core.depend_inject import Component, RefreshScope, Value, logger
 from apps.base.enum.error_code import ErrorCode
 from apps.base.enum.oss import DirType
 from apps.base.exception.my_exception import MyException
@@ -16,7 +16,7 @@ from apps.web.dto.oss_dto import SignatureResultDTO
 class UploadConfigInfo:
 
     def __init__(
-            self, content_type: str, max_size: int, expire_seconds: int, old_filename: str, filename: str, key: str
+        self, content_type: str, max_size: int, expire_seconds: int, old_filename: str, filename: str, key: str
     ):
         self.content_type = content_type
         self.max_size = max_size

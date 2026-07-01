@@ -3,12 +3,12 @@
 # @File    : sms_util.py
 import json
 
+from alibabacloud_dysmsapi20170525.client import Client as Dysmsapi20170525Client
 from alibabacloud_dysmsapi20170525.models import SendSmsRequest
 from alibabacloud_tea_openapi import models as open_api_models
 from alibabacloud_tea_util import models as util_models
-from alibabacloud_dysmsapi20170525.client import Client as Dysmsapi20170525Client
 
-from apps.base.core.depend_inject import Component, Value, logger, RefreshScope
+from apps.base.core.depend_inject import Component, RefreshScope, Value, logger
 
 
 @Component()
@@ -26,7 +26,7 @@ class SmsUtil:
             # 必填，请确保代码运行环境设置了环境变量 ALIBABA_CLOUD_ACCESS_KEY_SECRET。,
             access_key_secret=self.secret_key,
             endpoint=self.endpoint,
-            region_id=self.region
+            region_id=self.region,
         )
         self.client = Dysmsapi20170525Client(config)
 
@@ -38,7 +38,7 @@ class SmsUtil:
             phone_numbers=mobile,
             sign_name=self.sign_name,
             template_code=sms_type,
-            template_param=json.dumps({"code": code})
+            template_param=json.dumps({"code": code}),
         )
         try:
             self.client.send_sms_with_options(send_sms_request, util_models.RuntimeOptions())

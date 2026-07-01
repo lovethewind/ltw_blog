@@ -3,8 +3,7 @@ import json
 
 import aiohttp
 
-from apps.base.core.depend_inject import Component, Value, Autowired, logger
-from apps.base.enum.error_code import ErrorCode
+from apps.base.core.depend_inject import Autowired, Component, Value, logger
 from apps.base.exception.my_exception import MyException
 from apps.base.utils.redis_util import RedisUtil
 from apps.base.utils.snowflake import SnowflakeIDGenerator
@@ -83,7 +82,7 @@ class WechatUtil:
             "scene": scene,
             "page": self.page,
             "env_version": self.env_version,
-            "check_path": self.env_version != "develop"
+            "check_path": self.env_version != "develop",
         }
         async with aiohttp.ClientSession() as session:
             response = await session.post(url, json=data)

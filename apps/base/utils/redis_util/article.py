@@ -26,8 +26,9 @@ class ArticleMethod:
         key = str(article_id)
         ret = await self._redis.hget(RedisConstant.ARTICLE_LIKE_COUNT_MAP_KEY, key)
         if ret is None:
-            ret = await Action.filter(obj_id=article_id, obj_type=ObjectTypeEnum.ARTICLE,
-                                      action_type=ActionTypeEnum.LIKE, status=True).count()
+            ret = await Action.filter(
+                obj_id=article_id, obj_type=ObjectTypeEnum.ARTICLE, action_type=ActionTypeEnum.LIKE, status=True
+            ).count()
             await self._redis.hset(RedisConstant.ARTICLE_LIKE_COUNT_MAP_KEY, key, str(ret))
         return int(ret)
 
@@ -66,8 +67,9 @@ class ArticleMethod:
         key = str(article_id)
         ret = await self._redis.hget(RedisConstant.ARTICLE_COLLECT_COUNT_MAP_KEY, key)
         if ret is None:
-            ret = await Action.filter(obj_id=article_id, obj_type=ObjectTypeEnum.ARTICLE,
-                                      action_type=ActionTypeEnum.COLLECT, status=True).count()
+            ret = await Action.filter(
+                obj_id=article_id, obj_type=ObjectTypeEnum.ARTICLE, action_type=ActionTypeEnum.COLLECT, status=True
+            ).count()
             await self._redis.hset(RedisConstant.ARTICLE_COLLECT_COUNT_MAP_KEY, key, str(ret))
         return int(ret)
 
@@ -106,8 +108,9 @@ class ArticleMethod:
         key = str(article_id)
         ret = await self._redis.hget(RedisConstant.ARTICLE_COMMENT_COUNT_MAP_KEY, key)
         if ret is None:
-            ret = await Comment.filter(obj_id=article_id, obj_type=ObjectTypeEnum.ARTICLE,
-                                       status=CommentStatusEnum.PASS).count()
+            ret = await Comment.filter(
+                obj_id=article_id, obj_type=ObjectTypeEnum.ARTICLE, status=CommentStatusEnum.PASS
+            ).count()
             await self._redis.hset(RedisConstant.ARTICLE_COMMENT_COUNT_MAP_KEY, key, str(ret))
         return int(ret)
 
@@ -119,7 +122,7 @@ class ArticleMethod:
         """
         return sum([await self.get_article_comment_count(article_id) for article_id in article_ids])
 
-    async def incr_article_comment_count(self, article_id: int, count: int = 1) :
+    async def incr_article_comment_count(self, article_id: int, count: int = 1):
         """
         增加/减少文章评论数
         :param article_id: 文章id
@@ -137,9 +140,16 @@ class ArticleMethod:
         key = str(article_id)
         ret = await self._redis.hget(RedisConstant.ARTICLE_VIEW_COUNT_MAP_KEY, key)
         if ret is None:
-            ret = await (
-                ActionCount.filter(obj_id=article_id, obj_type=ObjectTypeEnum.ARTICLE, action_type=ActionTypeEnum.VIEW)
-                .first().values_list("count", flat=True)) or 0
+            ret = (
+                await (
+                    ActionCount.filter(
+                        obj_id=article_id, obj_type=ObjectTypeEnum.ARTICLE, action_type=ActionTypeEnum.VIEW
+                    )
+                    .first()
+                    .values_list("count", flat=True)
+                )
+                or 0
+            )
             await self._redis.hset(RedisConstant.ARTICLE_VIEW_COUNT_MAP_KEY, key, str(ret))
         return int(ret)
 
@@ -151,10 +161,9 @@ class ArticleMethod:
         """
         return sum([await self.get_article_view_count(article_id) for article_id in article_ids])
 
-    async def incr_article_view_count(self, article_id: int) :
+    async def incr_article_view_count(self, article_id: int):
         ret = await self._redis.hincrby(RedisConstant.ARTICLE_VIEW_COUNT_MAP_KEY, str(article_id))
         return ret
-
 
     async def get_published_article(self, current: int, size: int) -> list[int]:
         """
@@ -169,7 +178,7 @@ class ArticleMethod:
         ret = [int(article_id) for article_id in ret]
         return ret
 
-    async def add_published_article(self, article_id: int, view_count: int) :
+    async def add_published_article(self, article_id: int, view_count: int):
         """
         添加已发布文章
         :param article_id: 文章id
@@ -178,7 +187,7 @@ class ArticleMethod:
         """
         await self._redis.zadd(RedisConstant.ARTICLE_VIEW_COUNT_ADD_WAIT_KEY, {str(article_id): view_count})
 
-    async def delete_published_article(self, article_id: int) :
+    async def delete_published_article(self, article_id: int):
         """
         移除已发布转为其他状态的文章
         :param article_id: 文章id

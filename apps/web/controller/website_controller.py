@@ -2,9 +2,8 @@
 # @Author  : frank
 # @File    : website_controller.py
 from fastapi import APIRouter
-from fastapi.params import Depends
 
-from apps.base.core.depend_inject import Controller, Autowired
+from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 from apps.web.service.website_service import WebsiteService
 from apps.web.vo.website_vo import WebsiteVO

@@ -49,6 +49,7 @@ class ErrorCode(Enum):
     PICTURE_NOT_EXIST = (16004, "图片不存在")
     # 网站导航相关
     WEBSITE_HAS_EXIST = (17001, "该网站已存在")
+
     @property
     def code(self) -> int:
         return self.value[0]

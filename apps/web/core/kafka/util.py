@@ -3,15 +3,15 @@
 # @File    : util.py
 import asyncio
 import json
-from typing import Coroutine, Any
+from typing import Any, Coroutine
 
-from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from dependency_injector.providers import Callable
 from kafka import KafkaAdminClient
 from kafka.admin import NewTopic
 from kafka.errors import TopicAlreadyExistsError
 
-from apps.base.core.depend_inject import Component, Value, Autowired, logger
+from apps.base.core.depend_inject import Autowired, Component, Value, logger
 from apps.base.models.notice import Notice
 from apps.base.utils.email_util import EmailUtil
 from apps.base.utils.sms_util import SmsUtil
@@ -51,10 +51,13 @@ class KafkaUtil:
     def _create_topics(self):
         try:
             self.client.create_topics(
-                [NewTopic(KafkaConfig.SEND_MAIL_TOPIC, num_partitions=1, replication_factor=1),
-                 NewTopic(KafkaConfig.SEND_SMS_TOPIC, num_partitions=1, replication_factor=1),
-                 NewTopic(KafkaConfig.SEND_NOTICE_TOPIC, num_partitions=1, replication_factor=1)])
-        except TopicAlreadyExistsError as e:
+                [
+                    NewTopic(KafkaConfig.SEND_MAIL_TOPIC, num_partitions=1, replication_factor=1),
+                    NewTopic(KafkaConfig.SEND_SMS_TOPIC, num_partitions=1, replication_factor=1),
+                    NewTopic(KafkaConfig.SEND_NOTICE_TOPIC, num_partitions=1, replication_factor=1),
+                ]
+            )
+        except TopicAlreadyExistsError:
             pass
 
     async def _init_consumer(self, key: str, topic: str, group_id: str) -> AIOKafkaConsumer:
@@ -69,10 +72,10 @@ class KafkaUtil:
         consumer = AIOKafkaConsumer(
             topic,
             bootstrap_servers=self.bootstrap_servers,
-            auto_offset_reset='earliest',
+            auto_offset_reset="earliest",
             enable_auto_commit=True,
             group_id=group_id,
-            value_deserializer=lambda x: json.loads(x.decode('utf-8'))
+            value_deserializer=lambda x: json.loads(x.decode("utf-8")),
         )
         try:
             await consumer.start()
@@ -92,8 +95,7 @@ class KafkaUtil:
         """
         if not self.producer:
             self.producer = AIOKafkaProducer(
-                bootstrap_servers=self.bootstrap_servers,
-                value_serializer=lambda v: json.dumps(v).encode('utf-8')
+                bootstrap_servers=self.bootstrap_servers, value_serializer=lambda v: json.dumps(v).encode("utf-8")
             )
         if not self.producer_started:
             await self.producer.start()
@@ -147,14 +149,25 @@ class KafkaUtil:
             KafkaConfig.SEND_NOTICE_TOPIC,
             KafkaConfig.SEND_NOTICE_GROUP,
         )
-        self._consumer_task_list.extend([
-            loop.create_task(self._consume_messages(KafkaConfig.SEND_MAIL_TOPIC, KafkaConfig.SEND_MAIL_GROUP,
-                                                    self.email_util.send_email)),
-            loop.create_task(self._consume_messages(KafkaConfig.SEND_SMS_TOPIC, KafkaConfig.SEND_SMS_GROUP,
-                                                    self.sms_util.send_sms)),
-            loop.create_task(self._consume_messages(KafkaConfig.SEND_NOTICE_TOPIC, KafkaConfig.SEND_NOTICE_GROUP,
-                                                    AsyncTask.send_notice)),
-        ])
+        self._consumer_task_list.extend(
+            [
+                loop.create_task(
+                    self._consume_messages(
+                        KafkaConfig.SEND_MAIL_TOPIC, KafkaConfig.SEND_MAIL_GROUP, self.email_util.send_email
+                    )
+                ),
+                loop.create_task(
+                    self._consume_messages(
+                        KafkaConfig.SEND_SMS_TOPIC, KafkaConfig.SEND_SMS_GROUP, self.sms_util.send_sms
+                    )
+                ),
+                loop.create_task(
+                    self._consume_messages(
+                        KafkaConfig.SEND_NOTICE_TOPIC, KafkaConfig.SEND_NOTICE_GROUP, AsyncTask.send_notice
+                    )
+                ),
+            ]
+        )
 
     async def stop(self) -> None:
         """

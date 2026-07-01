@@ -6,7 +6,7 @@ import asyncio
 from tortoise.functions import Count
 
 from apps.base.constant.common_constant import CommonConstant
-from apps.base.core.depend_inject import Component, Autowired
+from apps.base.core.depend_inject import Autowired, Component
 from apps.base.enum.error_code import ErrorCode
 from apps.base.exception.my_exception import MyException
 from apps.base.models.message import Message

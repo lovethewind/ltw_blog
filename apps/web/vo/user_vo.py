@@ -1,4 +1,3 @@
-from email.policy import default
 from enum import IntEnum
 from typing import Optional
 
@@ -11,8 +10,9 @@ from apps.web.vo.base_vo import BaseVO
 
 class LoginVO(BaseVO):
     username: Optional[str] = Field(default=None, min_length=3, max_length=20)
-    email: Optional[str] = Field(default=None, max_length=50,
-                                 pattern=r"^[A-Za-z0-9+_.-]+[a-zA-Z0-9_-]@[A-Za-z0-9_-]+(\.[A-Za-z]+)+$")
+    email: Optional[str] = Field(
+        default=None, max_length=50, pattern=r"^[A-Za-z0-9+_.-]+[a-zA-Z0-9_-]@[A-Za-z0-9_-]+(\.[A-Za-z]+)+$"
+    )
     mobile: Optional[str] = Field(default=None, pattern=r"^1[345789][0-9]{9}$")
     password: Optional[str] = Field(default=None)
     code: Optional[str] = Field(default=None, min_length=6, max_length=6)

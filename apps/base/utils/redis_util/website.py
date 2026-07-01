@@ -17,8 +17,9 @@ class WebsiteMethod:
     def __init__(self, redis: Redis):
         self._redis = redis
 
-    async def incr_website_view_count(self, ip_address: str,
-                                  throttle_rate: int | datetime.timedelta = datetime.timedelta(minutes=1)):
+    async def incr_website_view_count(
+        self, ip_address: str, throttle_rate: int | datetime.timedelta = datetime.timedelta(minutes=1)
+    ):
         """
         增加网站访问量
         """
@@ -33,4 +34,3 @@ class WebsiteMethod:
         """
         ret = await self._redis.get(RedisConstant.WEBSITE_VIEW_COUNT_KEY) or 0
         return ret
-

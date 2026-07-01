@@ -21,6 +21,7 @@ class User(BaseModel):
     background = fields.CharField(max_length=512, null=True, description="个人中心背景图")
     address = fields.CharField(max_length=100, null=True, description="地址")
     is_official = fields.BooleanField(default=False, description="是否是官方用户")
+
     class Meta:
         table = "t_user"
         table_description = "用户表"
@@ -32,10 +33,10 @@ class UserRestriction(BaseModel):
     start_time = fields.DatetimeField(null=True, description="限制开始时间")
     end_time = fields.DatetimeField(null=True, description="限制结束时间")
     is_forever = fields.BooleanField(default=False, description="是否永久限制")
-    reason = fields.CharField(max_length=1000, default='', description="限制原因")
+    reason = fields.CharField(max_length=1000, default="", description="限制原因")
     is_cancel = fields.BooleanField(default=False, description="是否解除")
     cancel_time = fields.DatetimeField(null=True, description="解除时间")
-    cancel_reason = fields.CharField(max_length=1000, default='', description="解除原因")
+    cancel_reason = fields.CharField(max_length=1000, default="", description="解除原因")
 
     class Meta:
         table = "t_user_restriction"

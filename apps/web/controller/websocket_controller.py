@@ -5,7 +5,7 @@ from fastapi import APIRouter
 from fastapi.params import Depends
 from starlette.websockets import WebSocket
 
-from apps.base.core.depend_inject import Controller, Autowired
+from apps.base.core.depend_inject import Autowired, Controller
 from apps.web.service.websocket_service import WebSocketService
 from apps.web.utils.depends_util import DependsUtil
 

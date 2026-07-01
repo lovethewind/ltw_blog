@@ -6,7 +6,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-
 ROOT_DIR = Path(__file__).resolve().parents[1]
 INFO_PATH = ROOT_DIR / ".info"
 PYPROJECT_PATH = ROOT_DIR / "pyproject.toml"

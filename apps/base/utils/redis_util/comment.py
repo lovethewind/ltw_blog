@@ -24,8 +24,9 @@ class CommentMethod:
         key = str(comment_id)
         ret = await self._redis.hget(RedisConstant.COMMENT_LIKE_COUNT_MAP_KEY, key)
         if ret is None:
-            ret = await Action.filter(obj_id=comment_id, obj_type=ObjectTypeEnum.COMMENT,
-                                      action_type=ActionTypeEnum.LIKE, status=True).count()
+            ret = await Action.filter(
+                obj_id=comment_id, obj_type=ObjectTypeEnum.COMMENT, action_type=ActionTypeEnum.LIKE, status=True
+            ).count()
             await self._redis.hset(RedisConstant.COMMENT_LIKE_COUNT_MAP_KEY, key, str(ret))
         return int(ret)
 

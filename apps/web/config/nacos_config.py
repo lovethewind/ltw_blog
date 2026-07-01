@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 import yaml
 from v2.nacos import ClientConfigBuilder, ConfigParam, GRPCConfig, NacosConfigService
 
-from apps.base.core.depend_inject import Value, Component
+from apps.base.core.depend_inject import Component, Value
 
 APP_ENV_ACTIVE_NAME = "app.active"
 APP_NAME = "app.name"
@@ -97,9 +97,7 @@ class LatestNacosConfigClient:
         :param group: 配置分组
         :return: 配置内容
         """
-        return self._run_async(
-            self.client.get_config(ConfigParam(data_id=data_id, group=group))
-        )
+        return self._run_async(self.client.get_config(ConfigParam(data_id=data_id, group=group)))
 
     def add_watcher(self, data_id: str, group: str, watcher: Callable[..., Any]) -> None:
         """
@@ -121,12 +119,14 @@ class LatestNacosConfigClient:
             :param content: 配置内容
             :return: None
             """
-            watcher({
-                "tenant": tenant,
-                "group": group_name,
-                "dataId": config_data_id,
-                "content": content,
-            })
+            watcher(
+                {
+                    "tenant": tenant,
+                    "group": group_name,
+                    "dataId": config_data_id,
+                    "content": content,
+                }
+            )
 
         self._run_async(self.client.add_listener(data_id, group, listener))
 
@@ -185,9 +185,5 @@ def add_no_proxy_host(server_addr: str) -> None:
         if parsed.hostname:
             hosts.add(parsed.hostname)
     for key in ("NO_PROXY", "no_proxy"):
-        exists_hosts = {
-            host.strip()
-            for host in os.environ.get(key, "").split(",")
-            if host.strip()
-        }
+        exists_hosts = {host.strip() for host in os.environ.get(key, "").split(",") if host.strip()}
         os.environ[key] = ",".join(sorted(exists_hosts | hosts))

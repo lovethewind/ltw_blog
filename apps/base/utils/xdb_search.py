@@ -6,9 +6,9 @@
 #  Copyright © 2022年 luckydog. All rights reserved.
 #
 
+import io
 import socket
 import struct
-import io
 import sys
 
 # xdb默认参数
@@ -54,13 +54,15 @@ class XdbSearcher(object):
 
     def search(self, ip):
         if isinstance(ip, str):
-            if not ip.isdigit(): ip = self.ip2long(ip)
+            if not ip.isdigit():
+                ip = self.ip2long(ip)
             return self.searchByIPLong(ip)
         else:
             return self.searchByIPLong(ip)
 
     def searchByIPStr(self, ip):
-        if not ip.isdigit(): ip = self.ip2long(ip)
+        if not ip.isdigit():
+            ip = self.ip2long(ip)
         return self.searchByIPLong(ip)
 
     def searchByIPLong(self, ip):
@@ -115,7 +117,7 @@ class XdbSearcher(object):
         buffer = None
         # check the in-memory buffer first
         if self.contentBuff is not None:
-            buffer = self.contentBuff[offset:offset + length]
+            buffer = self.contentBuff[offset : offset + length]
             return buffer
 
         # read from the file handle
@@ -148,20 +150,24 @@ class XdbSearcher(object):
     def isip(self, ip):
         p = ip.split(".")
 
-        if len(p) != 4: return False
+        if len(p) != 4:
+            return False
         for pp in p:
-            if not pp.isdigit(): return False
-            if len(pp) > 3: return False
-            if int(pp) > 255: return False
+            if not pp.isdigit():
+                return False
+            if len(pp) > 3:
+                return False
+            if int(pp) > 255:
+                return False
         return True
 
     def getLong(self, b, offset):
-        if len(b[offset:offset + 4]) == 4:
-            return struct.unpack('I', b[offset:offset + 4])[0]
+        if len(b[offset : offset + 4]) == 4:
+            return struct.unpack("I", b[offset : offset + 4])[0]
         return 0
 
     def getInt2(self, b, offset):
-        return ((b[offset] & 0x000000FF) | (b[offset + 1] << 8))
+        return (b[offset] & 0x000000FF) | (b[offset + 1] << 8)
 
     def close(self):
         if self.__f is not None:
@@ -170,11 +176,8 @@ class XdbSearcher(object):
         self.contentBuff = None
 
 
-if __name__ == '__main__':
-    ip_array = [
-        "1.2.3.4",
-        "192.168.1.1"
-    ]
+if __name__ == "__main__":
+    ip_array = ["1.2.3.4", "192.168.1.1"]
     # 1. 缓存
     dbPath = "../resources/ip2region.xdb"
     cb = XdbSearcher.loadContentFromFile(dbfile=dbPath)

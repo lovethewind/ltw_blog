@@ -3,7 +3,7 @@
 # @File    : search_service.py
 from tortoise.expressions import Q
 
-from apps.base.core.depend_inject import Component, Autowired
+from apps.base.core.depend_inject import Autowired, Component
 from apps.base.models.article import Article
 from apps.base.models.user import User
 from apps.base.utils.redis_util import RedisUtil
@@ -11,9 +11,9 @@ from apps.web.core.es.constant.es_constant import ESConstant
 from apps.web.core.es.utils.es_util import ESUtil
 from apps.web.core.es.utils.html_util import HtmlUtil
 from apps.web.dao.article_dao import ArticleDao
-from apps.web.dto.article_dto import ArticleListDTO, ArticleBaseInfoDTO
+from apps.web.dto.article_dto import ArticleBaseInfoDTO, ArticleListDTO
 from apps.web.dto.user_dto import UserBaseInfoDTO
-from apps.web.vo.search_vo import ArticleSearchVO, ArticleRecommendVO, UserSearchVO
+from apps.web.vo.search_vo import ArticleRecommendVO, ArticleSearchVO, UserSearchVO
 
 
 @Component()

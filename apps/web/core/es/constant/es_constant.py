@@ -2,7 +2,7 @@
 # @Author  : frank
 # @File    : es_constant.py
 from apps.base.enum.article import ArticleStatusEnum
-from apps.web.vo.search_vo import ArticleSearchVO, OrderTypeEnum, ArticleRecommendVO
+from apps.web.vo.search_vo import ArticleRecommendVO, ArticleSearchVO, OrderTypeEnum
 
 
 class ESConstant:
@@ -15,7 +15,7 @@ class ESConstant:
             "title": {
                 "type": "text",  # 改为text类型以便使用分析器
                 "analyzer": "ik_max_word",  # 使用ik_max_word分词器
-                "search_analyzer": "ik_smart"  # 搜索时使用ik_smart分词器
+                "search_analyzer": "ik_smart",  # 搜索时使用ik_smart分词器
             },
             "content": {
                 "type": "text",  # 同样改为text类型
@@ -31,7 +31,7 @@ class ESConstant:
             "view_count": {"type": "long"},
             "like_count": {"type": "long", "index": False},
             "collect_count": {"type": "long", "index": False},
-            "comment_count": {"type": "long", "index": False}
+            "comment_count": {"type": "long", "index": False},
         }
     }
 
@@ -42,12 +42,7 @@ class ESConstant:
                 "bool": {
                     "must": [
                         {"term": {"status": ArticleStatusEnum.PUBLISHED.value}},
-                        {"multi_match":
-                            {
-                                "query": article_search_vo.keyword,
-                                "fields": ["title^2", "content"]
-                            }
-                        }
+                        {"multi_match": {"query": article_search_vo.keyword, "fields": ["title^2", "content"]}},
                     ]
                 }
             },
@@ -56,11 +51,8 @@ class ESConstant:
             "highlight": {
                 "pre_tags": ["<span class='highlight-keyword'>"],
                 "post_tags": ["</span>"],
-                "fields": {
-                    "content": {},
-                    "title": {}
-                }
-            }
+                "fields": {"content": {}, "title": {}},
+            },
         }
         if article_search_vo.order_type == OrderTypeEnum.BY_CREATE_TIME:
             dsl["sort"] = [{"id": {"order": "asc"}}]
@@ -78,18 +70,13 @@ class ESConstant:
                     "must_not": [{"term": {"id": article_recommend_vo.article_id}}],
                     "must": [
                         {"term": {"status": ArticleStatusEnum.PUBLISHED.value}},
-                        {"multi_match":
-                            {
-                                "query": article_recommend_vo.title,
-                                "fields": ["title^2", "content"]
-                            }
-                        }
-                    ]
+                        {"multi_match": {"query": article_recommend_vo.title, "fields": ["title^2", "content"]}},
+                    ],
                 }
             },
             "from": 0,
             "size": article_recommend_vo.count,
             "sort": [{"id": {"order": "desc"}}],
-            "_source": ["id", "title", "cover", "user_id", "create_time"]
+            "_source": ["id", "title", "cover", "user_id", "create_time"],
         }
         return dsl

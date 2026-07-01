@@ -3,8 +3,14 @@
 # @File    : chat_dto.py
 from tortoise import fields
 
-from apps.base.enum.chat import ContactTypeEnum, ChatMessageTypeEnum, ChatGroupTypeEnum, ChatGroupJoinTypeEnum, \
-    ChatGroupRoleEnum, ContactApplyStatusEnum
+from apps.base.enum.chat import (
+    ChatGroupJoinTypeEnum,
+    ChatGroupRoleEnum,
+    ChatGroupTypeEnum,
+    ChatMessageTypeEnum,
+    ContactApplyStatusEnum,
+    ContactTypeEnum,
+)
 from apps.base.models.base import BaseModel
 
 

@@ -2,9 +2,8 @@
 # @Author  : frank
 # @File    : message_controller.py
 from fastapi import APIRouter
-from fastapi.params import Depends
 
-from apps.base.core.depend_inject import Controller, Autowired
+from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 from apps.web.service.message_service import MessageService
 from apps.web.vo.message_vo import MessageAddVO

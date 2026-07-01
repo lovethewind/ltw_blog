@@ -19,10 +19,7 @@ class TagService:
         tag_list = await Tag.filter(is_active=True)
         tags = self._build_tree(tag_list)
         tag_list = TagDTO.bulk_model_validate(tag_list)
-        ret = {
-            "nodes": tags,
-            "records": tag_list
-        }
+        ret = {"nodes": tags, "records": tag_list}
         return ret
 
     def _build_tree(self, tag_list: list[Tag]) -> list[TagDTO]:

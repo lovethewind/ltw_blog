@@ -3,10 +3,17 @@
 # @File    : chat_dto.py
 import json
 from datetime import datetime
-from typing import Optional, Any
+from typing import Any, Optional
 
-from apps.base.enum.chat import ContactTypeEnum, ChatMessageTypeEnum, WSMessageTypeEnum, WSMessageShowType, \
-    ChatGroupTypeEnum, MessageSendStatusEnum, ContactApplyStatusEnum
+from apps.base.enum.chat import (
+    ChatGroupTypeEnum,
+    ChatMessageTypeEnum,
+    ContactApplyStatusEnum,
+    ContactTypeEnum,
+    MessageSendStatusEnum,
+    WSMessageShowType,
+    WSMessageTypeEnum,
+)
 from apps.web.dto.base_dto import BaseDTO
 
 
@@ -94,6 +101,7 @@ class WSMessageDTO[T](BaseDTO):
     """
     websocket顶部类
     """
+
     message_type: WSMessageTypeEnum = WSMessageTypeEnum.NOTICE
     show_type: WSMessageShowType = WSMessageShowType.NOTIFICATION
     message: T

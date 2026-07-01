@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends
 
-from apps.base.core.depend_inject import Controller, Autowired
+from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.decorator_util import avoid_repeat_submit
 from apps.base.utils.response_util import ResponseUtil
 from apps.web.service.article_service import ArticleService
-from apps.web.vo.article_vo import ArticleQueryVO, ArticleVO, ArticleUpdateVO, ArticleAddViewCountVO
+from apps.web.vo.article_vo import ArticleAddViewCountVO, ArticleQueryVO, ArticleUpdateVO, ArticleVO
 from apps.web.vo.batch_vo import BatchVO
 
 router = APIRouter(prefix="/article", tags=["文章信息"])

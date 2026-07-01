@@ -8,6 +8,7 @@ class NoticeTypeEnum(IntEnum):
     """
     1: 系统 2: 评论 3:回复(评论) 4: @我 5: 点赞 6: 收藏 7: 关注
     """
+
     SYSTEM = 1
     COMMENT = 2
     REPLY = 3

@@ -1,11 +1,11 @@
 {
   "project": "ltw-blog",
   "version": "0.0.1",
-  "generatedAt": "2026-07-01T10:50:16+08:00",
+  "generatedAt": "2026-07-01T10:50:28+08:00",
   "branch": "master",
-  "sourceCommit": "b968a154a985ea121ae6057d2f6a9533f7c9cc28",
-  "sourceCommitShort": "b968a15",
-  "sourceCommitTime": "2026-06-30T19:45:26+08:00",
-  "sourceCommitSubject": "fix:修复时区问题",
+  "sourceCommit": "3ef6f5c69359bffb188161d507d1d550f31ecba4",
+  "sourceCommitShort": "3ef6f5c",
+  "sourceCommitTime": "2026-07-01T10:50:16+08:00",
+  "sourceCommitSubject": "feat:优化tortoise初始化",
   "note": "pre-commit 生成；sourceCommit 为提交前 HEAD，不能表示本次提交自己的 hash。"
 }

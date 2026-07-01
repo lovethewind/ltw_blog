@@ -6,12 +6,13 @@ from redis.asyncio import Redis
 from redis.asyncio.lock import Lock
 from redis.exceptions import LockNotOwnedError
 
-from apps.base.core.depend_inject import Value, Component, RefreshScope, logger
+from apps.base.core.depend_inject import Component, RefreshScope, Value, logger
+
+from .acrion import ActionMethod
 from .article import ArticleMethod
 from .chat import ChatMethod
 from .comment import CommentMethod
 from .es import ESMethod
-from .acrion import ActionMethod
 from .picture import PictureMethod
 from .user import UserMethod
 from .verify_code import VerifyCodeMethod
@@ -47,33 +48,40 @@ class RedisUtil:
     async def delete(self, key: str):
         return await self.redis.delete(key)
 
-    def get_lock(self,
-                 name: str,
-                 timeout: int = 60,
-                 sleep: float = 0.1,
-                 blocking: bool = False,
-                 blocking_timeout: int = 3,
-                 renew=True):
+    def get_lock(
+        self,
+        name: str,
+        timeout: int = 60,
+        sleep: float = 0.1,
+        blocking: bool = False,
+        blocking_timeout: int = 3,
+        renew=True,
+    ):
         return AsyncAutoRenewLock(self.redis, name, timeout, sleep, blocking, blocking_timeout, renew)
 
 
 class AsyncAutoRenewLock(Lock):
-    def __init__(self, _redis: Redis,
-                 name: str,
-                 timeout: int = 60,
-                 sleep: float = 0.1,
-                 blocking: bool = False,
-                 blocking_timeout: int = 30,
-                 renew: bool = True):
+    def __init__(
+        self,
+        _redis: Redis,
+        name: str,
+        timeout: int = 60,
+        sleep: float = 0.1,
+        blocking: bool = False,
+        blocking_timeout: int = 30,
+        renew: bool = True,
+    ):
         self.renew = renew
         self.renew_ttl = round(timeout / 3, 2)
         self.renew_task: Optional[asyncio.Task] = None
         super().__init__(_redis, name, timeout, sleep, blocking, blocking_timeout)
 
-    async def acquire(self,
-                      blocking: Optional[bool] = None,
-                      blocking_timeout: Optional[float] = None,
-                      token: Optional[str | bytes] = None, ) -> bool:
+    async def acquire(
+        self,
+        blocking: Optional[bool] = None,
+        blocking_timeout: Optional[float] = None,
+        token: Optional[str | bytes] = None,
+    ) -> bool:
         """
         异步尝试获取锁。
         """

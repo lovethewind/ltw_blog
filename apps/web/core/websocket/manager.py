@@ -33,10 +33,10 @@ class WebSocketManager:
     """支持 Redis 跨 worker 投递的 WebSocket Manager。"""
 
     def __init__(
-            self,
-            store: WebSocketRedisStore | Any | None = None,
-            handlers: Iterable[BaseMessageHandler] | None = None,
-            heartbeat_interval: int = 30,
+        self,
+        store: WebSocketRedisStore | Any | None = None,
+        handlers: Iterable[BaseMessageHandler] | None = None,
+        heartbeat_interval: int = 30,
     ) -> None:
         """
         初始化 WebSocket Manager。
@@ -139,10 +139,10 @@ class WebSocketManager:
             )
 
     async def handle_client_message(
-            self,
-            websocket: WebSocket,
-            message: dict[str, Any],
-            user_id: int,
+        self,
+        websocket: WebSocket,
+        message: dict[str, Any],
+        user_id: int,
     ) -> None:
         """
         校验客户端消息并交给对应 Handler。
@@ -175,9 +175,9 @@ class WebSocketManager:
         await handler.handle(self, None, validated_message, None)
 
     async def publish_message(
-            self,
-            message: WSMessageDTO[Any],
-            target_user_ids: list[int] | None = None,
+        self,
+        message: WSMessageDTO[Any],
+        target_user_ids: list[int] | None = None,
     ) -> None:
         """
         通过 Redis 发布消息。

@@ -279,18 +279,34 @@ class UserService:
         token = TokenUtil.create_token(user.id, user.username)
         return {"token": token}
 
-    async def get_user_info(self, query_id: int, by_uid=False):
+    async def get_user_info_by_uid(self, uid: int):
         """
         获取某一用户信息
-        :param query_id: user_id/uid
-        :param by_uid:
+        :param uid: uid
         :return:
         """
         login_user_id = ContextVars.token_user_id.get()
-        if by_uid:
-            user = await User.filter(uid=query_id).first()
-        else:
-            user = await User.filter(id=query_id).first()
+        user = await User.filter(uid=uid).first()
+        if not user:
+            raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
+        dto = UserCommonInfoDTO.model_validate(user, from_attributes=True)
+        (
+            dto.is_friend,
+            dto.is_blocked,
+        ) = await asyncio.gather(
+            self.chat_dao.is_friend(login_user_id, user.id),
+            self.chat_dao.is_blocked(login_user_id, user.id),
+        )
+        return dto
+
+    async def get_user_info(self, user_id: int):
+        """
+        获取某一用户信息
+        :param user_id: user_id/uid
+        :return:
+        """
+        login_user_id = ContextVars.token_user_id.get()
+        user = await User.filter(id=user_id).first()
         if not user:
             raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
         user_id = user.id

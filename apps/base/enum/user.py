@@ -17,6 +17,7 @@ class UserRestrictionTypeEnum(IntEnum):
     """
     1:禁止登录 2:禁止评论
     """
+
     BAN = 1
     MUTE = 2
 
@@ -25,6 +26,7 @@ class WechatCodeTypeEnum(IntEnum):
     """
     1:登录 2:换绑旧验证 3:新绑定 4:修改密码
     """
+
     LOGIN = 1
     CHANGE_BIND_OLD = 2
     CHANGE_BIND_NEW = 3
@@ -42,11 +44,12 @@ class UserSettingsEnum(StrEnum):
     whenCollectMyContent:收藏我的内容时
     whenFollowMe:关注我时
     """
+
     ALLOW_VIEW_MY_COLLECT = "allowViewMyCollect"
     ALLOW_VIEW_MY_FOLLOW = "allowViewMyFollow"
-    ALLOW_VIEW_MY_ARTICLE = 'allowViewMyArticle'
-    WHEN_COMMENT_MY_CONTENT = 'whenCommentMyContent'
-    WHEN_REPLY_MY_COMMENT = 'whenReplyMyComment'
-    WHEN_LIKE_MY_CONTENT = 'whenLikeMyContent'
-    WHEN_COLLECT_MY_CONTENT = 'whenCollectMyContent'
-    WHEN_FOLLOW_ME = 'whenFollowMe'
+    ALLOW_VIEW_MY_ARTICLE = "allowViewMyArticle"
+    WHEN_COMMENT_MY_CONTENT = "whenCommentMyContent"
+    WHEN_REPLY_MY_COMMENT = "whenReplyMyComment"
+    WHEN_LIKE_MY_CONTENT = "whenLikeMyContent"
+    WHEN_COLLECT_MY_CONTENT = "whenCollectMyContent"
+    WHEN_FOLLOW_ME = "whenFollowMe"

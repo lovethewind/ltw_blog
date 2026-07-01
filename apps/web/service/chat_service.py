@@ -7,20 +7,35 @@ from datetime import datetime
 from tortoise.expressions import Q
 from tortoise.transactions import in_transaction
 
-from apps.base.core.depend_inject import Component, Autowired
+from apps.base.core.depend_inject import Autowired, Component
 from apps.base.enum.chat import ContactApplyStatusEnum, ContactTypeEnum, WSMessageTypeEnum
 from apps.base.enum.error_code import ErrorCode
 from apps.base.exception.my_exception import MyException
-from apps.base.models.chat import Conversation, ChatMessage, ContactApplyRecord, Contact
+from apps.base.models.chat import ChatMessage, Contact, ContactApplyRecord, Conversation
 from apps.base.utils.redis_util import RedisUtil
 from apps.web.core.context_vars import ContextVars
 from apps.web.dao.chat_dao import ChatDao
 from apps.web.dao.user_dao import UserDao
-from apps.web.dto.chat_dto import ConversationDTO, ChatMessageDTO, ChatMessageResultDTO, ContactApplyDTO, ContactDTO, \
-    UserProfileDTO, GroupProfileDTO, FriendApplyMessageDTO, WSMessageDTO
+from apps.web.dto.chat_dto import (
+    ChatMessageDTO,
+    ChatMessageResultDTO,
+    ContactApplyDTO,
+    ContactDTO,
+    ConversationDTO,
+    FriendApplyMessageDTO,
+    GroupProfileDTO,
+    UserProfileDTO,
+    WSMessageDTO,
+)
 from apps.web.utils.ws_util import manager
-from apps.web.vo.chat_vo import ConversationVO, HistoryMessageVO, ConversationUpdateVO, ContactApplyVO, \
-    HandleContactApplyVO, ContactVO
+from apps.web.vo.chat_vo import (
+    ContactApplyVO,
+    ContactVO,
+    ConversationUpdateVO,
+    ConversationVO,
+    HandleContactApplyVO,
+    HistoryMessageVO,
+)
 
 
 @Component()
@@ -53,8 +68,9 @@ class ChatService:
                 conversation.group_profile = await manager.get_group_info(conversation.contact_id)
             conversation.last_message = last_message_dict.get(conversation.conversation_id)
             conversation.online = await manager.is_online(conversation)
-            conversation.unread_count = await self.redis_util.Chat.get_conversation_unread_count(user_id,
-                                                                                                 conversation.conversation_id)
+            conversation.unread_count = await self.redis_util.Chat.get_conversation_unread_count(
+                user_id, conversation.conversation_id
+            )
         return {"total": total, "records": records}
 
     async def get_conversation_detail(self, conversation_vo: ConversationVO) -> ConversationDTO:
@@ -66,11 +82,15 @@ class ChatService:
         user_id = ContextVars.token_user_id.get()
         conversation = await Conversation.filter(user_id=user_id, contact_id=conversation_vo.contact_id).first()
         if not conversation:
-            conversation_id = manager.gen_conversation_id(user_id, conversation_vo.contact_id,
-                                                          conversation_vo.contact_type)
-            conversation = await Conversation.create(user_id=user_id, contact_id=conversation_vo.contact_id,
-                                                     contact_type=conversation_vo.contact_type,
-                                                     conversation_id=conversation_id)
+            conversation_id = manager.gen_conversation_id(
+                user_id, conversation_vo.contact_id, conversation_vo.contact_type
+            )
+            conversation = await Conversation.create(
+                user_id=user_id,
+                contact_id=conversation_vo.contact_id,
+                contact_type=conversation_vo.contact_type,
+                conversation_id=conversation_id,
+            )
         if conversation.is_clear:
             conversation.is_clear = False
             await conversation.save(update_fields=("is_clear",))
@@ -80,8 +100,9 @@ class ChatService:
         else:
             dto.group_profile = await manager.get_group_info(dto.contact_id)
         dto.online = await manager.is_online(dto)
-        dto.unread_count = await self.redis_util.Chat.get_conversation_unread_count(user_id,
-                                                                                    conversation.conversation_id)
+        dto.unread_count = await self.redis_util.Chat.get_conversation_unread_count(
+            user_id, conversation.conversation_id
+        )
         last_message_dict = await self.chat_dao.get_conversation_last_message([conversation])
         dto.last_message = last_message_dict.get(dto.conversation_id)
         return dto
@@ -94,8 +115,9 @@ class ChatService:
         """
         user_id = ContextVars.token_user_id.get()
         dto = ChatMessageResultDTO(records=[])
-        conversation = await Conversation.filter(user_id=user_id,
-                                                 conversation_id=history_message_vo.conversation_id).first()
+        conversation = await Conversation.filter(
+            user_id=user_id, conversation_id=history_message_vo.conversation_id
+        ).first()
         if not conversation:
             return dto
         q = ChatMessage.filter(conversation_id=history_message_vo.conversation_id).limit(20)
@@ -145,19 +167,25 @@ class ChatService:
         user_id = ContextVars.token_user_id.get()
         if await self.chat_dao.is_blocked(contact_apply_vo.contact_id, user_id):
             return
-        has_exists = await ContactApplyRecord.filter(user_id=user_id, contact_id=contact_apply_vo.contact_id,
-                                                     contact_type=contact_apply_vo.contact_type,
-                                                     status=ContactApplyStatusEnum.PENDING).exists()
+        has_exists = await ContactApplyRecord.filter(
+            user_id=user_id,
+            contact_id=contact_apply_vo.contact_id,
+            contact_type=contact_apply_vo.contact_type,
+            status=ContactApplyStatusEnum.PENDING,
+        ).exists()
         if has_exists:
             return
-        record = await ContactApplyRecord.create(user_id=user_id, contact_id=contact_apply_vo.contact_id,
-                                                 contact_type=contact_apply_vo.contact_type,
-                                                 status=ContactApplyStatusEnum.PENDING,
-                                                 content=contact_apply_vo.content)
+        record = await ContactApplyRecord.create(
+            user_id=user_id,
+            contact_id=contact_apply_vo.contact_id,
+            contact_type=contact_apply_vo.contact_type,
+            status=ContactApplyStatusEnum.PENDING,
+            content=contact_apply_vo.content,
+        )
         # 申请后页面通知对方
         message = WSMessageDTO[FriendApplyMessageDTO](
-            message_type=WSMessageTypeEnum.FRIEND_APPLY,
-            message=FriendApplyMessageDTO(user_id=record.contact_id))
+            message_type=WSMessageTypeEnum.FRIEND_APPLY, message=FriendApplyMessageDTO(user_id=record.contact_id)
+        )
         message.message.user_profile = await manager.get_user_info(record.user_id, UserProfileDTO)
         await manager.send_message(message)
 
@@ -189,15 +217,18 @@ class ChatService:
         record.status = handle_contact_apply_vo.status
         async with in_transaction():
             if handle_contact_apply_vo.status == ContactApplyStatusEnum.AGREE:
-                await Contact.create(user_id=record.contact_id, contact_id=record.user_id,
-                                     contact_type=record.contact_type)
+                await Contact.create(
+                    user_id=record.contact_id, contact_id=record.user_id, contact_type=record.contact_type
+                )
                 if record.contact_type == ContactTypeEnum.USER:
-                    await Contact.create(user_id=record.user_id, contact_id=record.contact_id,
-                                         contact_type=record.contact_type)
+                    await Contact.create(
+                        user_id=record.user_id, contact_id=record.contact_id, contact_type=record.contact_type
+                    )
             # 操作后页面通知对方
             message = WSMessageDTO[FriendApplyMessageDTO](
                 message_type=WSMessageTypeEnum.FRIEND_APPLY,
-                message=FriendApplyMessageDTO(user_id=record.user_id, status=handle_contact_apply_vo.status))
+                message=FriendApplyMessageDTO(user_id=record.user_id, status=handle_contact_apply_vo.status),
+            )
             message.message.user_profile = await manager.get_user_info(record.user_id, UserProfileDTO)
             await manager.send_message(message)
             await record.save(update_fields=("status", "update_time"))

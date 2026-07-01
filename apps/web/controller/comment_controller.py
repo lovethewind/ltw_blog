@@ -3,10 +3,10 @@
 # @File    : comment_controller.py
 from fastapi import APIRouter, Depends
 
-from apps.base.core.depend_inject import Controller, Autowired
+from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 from apps.web.service.comment_service import CommentService
-from apps.web.vo.comment_vo import CommentQueryVO, CommentAddVO
+from apps.web.vo.comment_vo import CommentAddVO, CommentQueryVO
 
 router = APIRouter(prefix="/comment", tags=["评论模块"])
 

@@ -16,7 +16,7 @@ class BaseDTO(BaseModel):
         populate_by_name = True
         json_encoders = {
             datetime.datetime: lambda v: v.strftime("%Y-%m-%d %H:%M:%S"),
-            int: lambda x: str(x) if x and x > 2 ** 31 else x,
+            int: lambda x: str(x) if x and x > 2**31 else x,
         }
 
     @classmethod

@@ -37,11 +37,11 @@ class ActionService:
     kafka_util: KafkaUtil = Autowired()
 
     async def list_actions(
-            self,
-            current: int,
-            size: int,
-            action_query_vo: ActionQueryVO,
-            action_type_detail_query_vo: ActionTypeDetailQueryVO,
+        self,
+        current: int,
+        size: int,
+        action_query_vo: ActionQueryVO,
+        action_type_detail_query_vo: ActionTypeDetailQueryVO,
     ) -> dict:
         """
         获取行为列表
@@ -65,11 +65,11 @@ class ActionService:
         return page
 
     async def list_user_actions(
-            self,
-            current: int,
-            size: int,
-            action_query_vo: ActionQueryVO,
-            action_type_detail_query_vo: ActionTypeDetailQueryVO,
+        self,
+        current: int,
+        size: int,
+        action_query_vo: ActionQueryVO,
+        action_type_detail_query_vo: ActionTypeDetailQueryVO,
     ) -> dict:
         """
         获取用户行为列表
@@ -81,7 +81,7 @@ class ActionService:
         """
         user_id = ContextVars.token_user_id.get()
         if (action_query_vo.user_id and action_query_vo.user_id != user_id) or (
-                action_query_vo.obj_id and action_query_vo.obj_id != user_id
+            action_query_vo.obj_id and action_query_vo.obj_id != user_id
         ):
             return {"total": 0, "records": []}
         page = await self._get_action_type_data(current, size, action_query_vo, action_type_detail_query_vo)
@@ -179,11 +179,11 @@ class ActionService:
         await manager.send_message(WSMessageDTO[NoticeSaveDTO](message=notice_dto))
 
     async def _get_action_type_data(
-            self,
-            current: int,
-            size: int,
-            action_query_vo: ActionQueryVO,
-            action_type_detail_query_vo: ActionTypeDetailQueryVO,
+        self,
+        current: int,
+        size: int,
+        action_query_vo: ActionQueryVO,
+        action_type_detail_query_vo: ActionTypeDetailQueryVO,
     ) -> dict:
         """
         获取行为的实际数据

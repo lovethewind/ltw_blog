@@ -5,14 +5,14 @@ from typing import TypeVar
 
 from tortoise.transactions import in_transaction
 
-from apps.base.core.depend_inject import Component, Autowired
-from apps.base.enum.action import ObjectTypeEnum, ActionTypeEnum
+from apps.base.core.depend_inject import Autowired, Component
+from apps.base.enum.action import ActionTypeEnum, ObjectTypeEnum
 from apps.base.models.action import Action
-from apps.base.models.chat import ChatGroup, ChatGroupMember, ChatMessage, Conversation, Contact
+from apps.base.models.chat import ChatGroup, ChatGroupMember, ChatMessage, Contact, Conversation
 from apps.web.constant.sql_constant import SqlConstant
 from apps.web.dao.common_dao import CommonDao
 from apps.web.dto.base_dto import BaseDTO
-from apps.web.dto.chat_dto import GroupInfoDTO, ChatSaveMessageDTO, ChatMessageDTO
+from apps.web.dto.chat_dto import ChatMessageDTO, ChatSaveMessageDTO, GroupInfoDTO
 
 T = TypeVar("T", bound=BaseDTO)
 

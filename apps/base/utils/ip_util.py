@@ -75,5 +75,5 @@ class IpUtil:
         return cls.get_address_from_ip(cls.get_ip_address(request))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print(IpUtil.get_address_from_ip("127.0.0.1"))

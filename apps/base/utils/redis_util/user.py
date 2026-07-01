@@ -115,9 +115,9 @@ class UserMethod:
         """
         key = f"{RedisConstant.USER_COLLECT_ARTICLE_ZSET_KEY}:{user_id}"
         if not await self._redis.exists(key):
-            collects = await (Action.filter(user_id=user_id, obj_type=ObjectTypeEnum.ARTICLE,
-                                            action_type=ActionTypeEnum.COLLECT, status=True)
-                              .values("obj_id", "create_time"))
+            collects = await Action.filter(
+                user_id=user_id, obj_type=ObjectTypeEnum.ARTICLE, action_type=ActionTypeEnum.COLLECT, status=True
+            ).values("obj_id", "create_time")
             collects_map = {collect["obj_id"]: collect["create_time"].timestamp() for collect in collects}
             if collects:
                 await self._redis.zadd(key, collects_map)
@@ -144,9 +144,9 @@ class UserMethod:
         """
         key = f"{RedisConstant.USER_LIKE_ARTICLE_ZSET_KEY}:{user_id}"
         if not await self._redis.exists(key):
-            likes = await (Action.filter(user_id=user_id, obj_type=ObjectTypeEnum.ARTICLE,
-                                         action_type=ActionTypeEnum.LIKE, status=True)
-                           .values("obj_id", "create_time"))
+            likes = await Action.filter(
+                user_id=user_id, obj_type=ObjectTypeEnum.ARTICLE, action_type=ActionTypeEnum.LIKE, status=True
+            ).values("obj_id", "create_time")
             likes_map = {like["obj_id"]: like["create_time"].timestamp() for like in likes}
             if likes_map:
                 await self._redis.zadd(key, likes_map)
@@ -173,9 +173,9 @@ class UserMethod:
         """
         key = f"{RedisConstant.USER_LIKE_COMMENT_ZSET_KEY}:{user_id}"
         if not await self._redis.exists(key):
-            likes = await (Action.filter(user_id=user_id, obj_type=ObjectTypeEnum.COMMENT,
-                                         action_type=ActionTypeEnum.LIKE, status=True)
-                           .values("obj_id", "create_time"))
+            likes = await Action.filter(
+                user_id=user_id, obj_type=ObjectTypeEnum.COMMENT, action_type=ActionTypeEnum.LIKE, status=True
+            ).values("obj_id", "create_time")
             likes_map = {like["obj_id"]: like["create_time"].timestamp() for like in likes}
             if likes_map:
                 await self._redis.zadd(key, likes_map)

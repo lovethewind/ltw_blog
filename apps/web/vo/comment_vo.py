@@ -1,7 +1,6 @@
 # @Time    : 2024/8/28 11:26
 # @Author  : frank
 # @File    : comment_vo.py
-from typing import Optional
 
 from apps.base.constant.common_constant import CommonConstant
 from apps.base.enum.action import ObjectTypeEnum

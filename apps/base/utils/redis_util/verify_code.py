@@ -18,11 +18,11 @@ class VerifyCodeMethod:
 
     async def check_verify_code(self, account: str, code: str, code_type: VerifyCodeTypeEnum) -> bool:
         """
-         校验验证码
-         :param account email或者手机号
-         :param code    6位数验证码
-         :param code_type    类型 register、find、bind、login、password
-         :return bool
+        校验验证码
+        :param account email或者手机号
+        :param code    6位数验证码
+        :param code_type    类型 register、find、bind、login、password
+        :return bool
         """
         if not account or not code:
             return False

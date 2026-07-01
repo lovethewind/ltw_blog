@@ -6,7 +6,7 @@ from email.mime.text import MIMEText
 
 import aiosmtplib
 
-from apps.base.core.depend_inject import Component, Value, logger, RefreshScope
+from apps.base.core.depend_inject import Component, RefreshScope, Value, logger
 
 
 @Component()
@@ -21,9 +21,9 @@ class EmailUtil:
     async def send_email(self, message: dict[str, str]):
         logger.info(f"======send email: {message}======")
         e_message = MIMEMultipart("alternative")
-        e_message['Subject'] = message.get("subject")
-        e_message['From'] = self.from_
-        e_message['To'] = message.get("to")
+        e_message["Subject"] = message.get("subject")
+        e_message["From"] = self.from_
+        e_message["To"] = message.get("to")
         e_message.attach(MIMEText(message.get("content"), "html"))
 
         await aiosmtplib.send(

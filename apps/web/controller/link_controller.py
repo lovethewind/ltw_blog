@@ -1,9 +1,9 @@
 # @Time    : 2024/9/2 14:57
 # @Author  : frank
 # @File    : link_controller.py
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
-from apps.base.core.depend_inject import Controller, Autowired
+from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 from apps.web.service.link_service import LinkService
 from apps.web.vo.link_vo import LinkVO

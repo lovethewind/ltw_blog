@@ -2,8 +2,8 @@ import json
 from datetime import datetime
 from typing import Any
 
-from fastapi.encoders import jsonable_encoder
 from fastapi import Response
+from fastapi.encoders import jsonable_encoder
 
 from apps.base.enum.error_code import ErrorCode
 
@@ -15,11 +15,7 @@ class Result:
         self.data = data
 
     def to_json(self):
-        return {
-            "code": self.code,
-            "message": self.message,
-            "data": self.data
-        }
+        return {"code": self.code, "message": self.message, "data": self.data}
 
 
 class ResponseUtil:
@@ -60,7 +56,7 @@ class ResponseUtil:
             for i in range(len(data)):
                 data[i] = cls._covert_data_type(data[i])
         if isinstance(data, int):
-            data = str(data) if data > 2 ** 31 else data
+            data = str(data) if data > 2**31 else data
         if isinstance(data, datetime):
             data = data.strftime("%Y-%m-%d %H:%M:%S")
         return data

@@ -3,8 +3,8 @@
 # @File    : common_service.py
 from apps.base.constant.email_constant import EmailConstant
 from apps.base.constant.sms_constant import SmsConstant
-from apps.base.core.depend_inject import Component, Autowired
-from apps.base.enum.common import VerifyCodeTypeEnum, FeedbackTypeEnum
+from apps.base.core.depend_inject import Autowired, Component
+from apps.base.enum.common import FeedbackTypeEnum, VerifyCodeTypeEnum
 from apps.base.enum.error_code import ErrorCode
 from apps.base.exception.my_exception import MyException
 from apps.base.models.user import User
@@ -13,7 +13,7 @@ from apps.base.utils.random_util import RandomUtil
 from apps.base.utils.redis_util import RedisUtil
 from apps.web.core.context_vars import ContextVars
 from apps.web.core.kafka.util import KafkaUtil
-from apps.web.vo.common_vo import EmailCodeVO, MobileCodeVO, FeedbackVO, UserEmailCodeVO, UserMobileCodeVO
+from apps.web.vo.common_vo import EmailCodeVO, FeedbackVO, MobileCodeVO, UserEmailCodeVO, UserMobileCodeVO
 from apps.web.vo.user_vo import ValidateAccountExistVO
 
 
@@ -85,8 +85,9 @@ class CommonService:
         """
         user_id = ContextVars.token_user_id.get()
         user = await User.filter(id=user_id).first()
-        return await self.redis_util.VerifyCode.check_verify_code(user.email, email_code_vo.code,
-                                                                  email_code_vo.code_type)
+        return await self.redis_util.VerifyCode.check_verify_code(
+            user.email, email_code_vo.code, email_code_vo.code_type
+        )
 
     async def get_mobile_code(self, mobile_code_vo: MobileCodeVO):
         """
@@ -131,12 +132,15 @@ class CommonService:
         :param mobile_code_vo:
         :return:
         """
-        if mobile_code_vo.code_type not in (VerifyCodeTypeEnum.FIND_PASSWORD,
-                                            VerifyCodeTypeEnum.REGISTER,
-                                            VerifyCodeTypeEnum.LOGIN):
+        if mobile_code_vo.code_type not in (
+            VerifyCodeTypeEnum.FIND_PASSWORD,
+            VerifyCodeTypeEnum.REGISTER,
+            VerifyCodeTypeEnum.LOGIN,
+        ):
             raise MyException(ErrorCode.PARAM_ERROR)
-        return await self.redis_util.VerifyCode.check_verify_code(mobile_code_vo.mobile, mobile_code_vo.code,
-                                                                  mobile_code_vo.code_type)
+        return await self.redis_util.VerifyCode.check_verify_code(
+            mobile_code_vo.mobile, mobile_code_vo.code, mobile_code_vo.code_type
+        )
 
     async def valid_user_mobile_code(self, mobile_code_vo: UserMobileCodeVO):
         """
@@ -144,13 +148,13 @@ class CommonService:
         :param mobile_code_vo:
         :return:
         """
-        if mobile_code_vo.code_type not in (VerifyCodeTypeEnum.CHANGE_BIND,
-                                            VerifyCodeTypeEnum.CHANGE_PASSWORD):
+        if mobile_code_vo.code_type not in (VerifyCodeTypeEnum.CHANGE_BIND, VerifyCodeTypeEnum.CHANGE_PASSWORD):
             raise MyException(ErrorCode.PARAM_ERROR)
         user_id = ContextVars.token_user_id.get()
         user = await User.filter(id=user_id).first()
-        return await self.redis_util.VerifyCode.check_verify_code(user.mobile, mobile_code_vo.code,
-                                                                  mobile_code_vo.code_type)
+        return await self.redis_util.VerifyCode.check_verify_code(
+            user.mobile, mobile_code_vo.code, mobile_code_vo.code_type
+        )
 
     async def valid_account_exists(self, validate_account_exist_vo: ValidateAccountExistVO):
         """

@@ -2,7 +2,7 @@
 # @Author  : frank
 # @File    : feign.py
 import inspect
-from typing import Type, Any
+from typing import Any, Type
 
 import aiohttp
 from fastapi import UploadFile
@@ -69,6 +69,7 @@ class Request:
     """
     升级了Fastapi版本，待优化
     """
+
     def __init__(self, method: str, path: str, route: APIRoute, return_annotation: Type[T]):
         self.url = None
         self.method = method

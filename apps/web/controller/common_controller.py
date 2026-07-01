@@ -3,11 +3,11 @@
 # @File    : common_controller.py
 from fastapi import APIRouter
 
-from apps.base.core.depend_inject import Controller, Autowired
+from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.decorator_util import avoid_repeat_submit
 from apps.base.utils.response_util import ResponseUtil
 from apps.web.service.common_service import CommonService
-from apps.web.vo.common_vo import EmailCodeVO, MobileCodeVO, FeedbackVO, UserEmailCodeVO, UserMobileCodeVO
+from apps.web.vo.common_vo import EmailCodeVO, FeedbackVO, MobileCodeVO, UserEmailCodeVO, UserMobileCodeVO
 from apps.web.vo.user_vo import ValidateAccountExistVO
 
 router = APIRouter(prefix="/common", tags=["公共接口"])

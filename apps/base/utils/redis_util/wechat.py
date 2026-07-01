@@ -13,7 +13,7 @@ class WechatMethod:
     def __init__(self, redis: Redis):
         self._redis = redis
 
-    async def save_wechat_code_openid(self, code: str, openid: str) :
+    async def save_wechat_code_openid(self, code: str, openid: str):
         """
         保存微信临时码-openId
         """
@@ -35,8 +35,9 @@ class WechatMethod:
         key = f"{RedisConstant.WECHAT_CODE_OPENID_KEY}:{code}"
         await self._redis.delete(key)
 
-    async def save_random_code_openid(self, code: str, openid: str,
-                                      ex: int | datetime.timedelta = datetime.timedelta(minutes=1)) :
+    async def save_random_code_openid(
+        self, code: str, openid: str, ex: int | datetime.timedelta = datetime.timedelta(minutes=1)
+    ):
         """
         保存随机验证码及openId
         """
@@ -57,7 +58,7 @@ class WechatMethod:
         ret = await self._redis.get(key)
         return ret
 
-    async def delete_random_code_openid(self, code: str) :
+    async def delete_random_code_openid(self, code: str):
         """
         删除随机验证码
         """

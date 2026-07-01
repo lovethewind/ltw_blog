@@ -12,8 +12,9 @@ class Website(BaseModel):
     introduce = fields.CharField(max_length=1000, description="简介")
     url = fields.CharField(max_length=100, description="url")
     index = fields.IntField(default=100000, description="排序")
-    status = fields.IntEnumField(CheckStatusEnum, defalut=CheckStatusEnum.PASS,
-                                 description="审核状态: 1: 已通过 2:审核中 3:拒绝")
+    status = fields.IntEnumField(
+        CheckStatusEnum, defalut=CheckStatusEnum.PASS, description="审核状态: 1: 已通过 2:审核中 3:拒绝"
+    )
 
     class Meta:
         table = "t_website"

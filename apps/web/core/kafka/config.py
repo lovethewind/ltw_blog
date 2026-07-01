@@ -2,6 +2,7 @@
 # @Author  : frank
 # @File    : config.py
 
+
 class KafkaConfig:
     SEND_MAIL_TOPIC = "send_mail"
     SEND_MAIL_GROUP = "send_mail_group"

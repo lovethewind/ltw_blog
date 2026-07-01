@@ -16,8 +16,9 @@ class Article(BaseModel):
     is_markdown = fields.BooleanField(default=False, description="是否是markdown")
     is_original = fields.BooleanField(default=True, description="是否是原创")
     original_url = fields.CharField(max_length=512, description="原文链接")
-    status = fields.IntEnumField(ArticleStatusEnum, default=ArticleStatusEnum.DRAFT,
-                                 description="文章状态 1:草稿 2:已发布 3:待审核 4:回收站")
+    status = fields.IntEnumField(
+        ArticleStatusEnum, default=ArticleStatusEnum.DRAFT, description="文章状态 1:草稿 2:已发布 3:待审核 4:回收站"
+    )
     is_deleted = fields.BooleanField(default=False, description="是否已删除(实现逻辑删除)")
     edit_time = fields.DatetimeField(null=True, description="最后编辑时间")
 

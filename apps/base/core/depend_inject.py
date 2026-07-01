@@ -3,7 +3,7 @@ import logging
 import os
 import threading
 from pathlib import Path
-from typing import Any, Type, get_type_hints, Optional
+from typing import Any, Optional, Type, get_type_hints
 
 import yaml
 from dependency_injector import containers, providers
@@ -12,8 +12,8 @@ from dependency_injector.providers import BaseSingleton
 from dotenv import load_dotenv
 from fastapi import APIRouter
 
-from .cbv import cbv
 from ..utils.path_util import PathUtil
+from .cbv import cbv
 
 logger = logging.getLogger(__name__)
 

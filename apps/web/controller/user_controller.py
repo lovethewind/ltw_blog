@@ -93,7 +93,7 @@ class UserController:
         :param uid:
         :return:
         """
-        ret = await self.user_service.get_user_info(uid, by_uid=True)
+        ret = await self.user_service.get_user_info_by_uid(uid)
         return ResponseUtil.success(ret)
 
     @router.post("/common/addViewCount", summary="增加用户浏览量")

@@ -2,7 +2,7 @@
 # @Author  : frank
 # @File    : notice_dto.py
 from datetime import datetime
-from typing import Optional, Any
+from typing import Any, Optional
 
 from apps.base.enum.action import ObjectTypeEnum
 from apps.base.enum.notice import NoticeTypeEnum

@@ -1,12 +1,12 @@
 # @Time    : 2024/9/12 14:40
 # @Author  : frank
 # @File    : action_controller.py
-from fastapi import APIRouter, Depends, Body
+from fastapi import APIRouter, Body, Depends
 
-from apps.base.core.depend_inject import Controller, Autowired
+from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 from apps.web.service.action_service import ActionService
-from apps.web.vo.action_vo import ActionQueryVO, ActionAddVO, ActionTypeDetailQueryVO
+from apps.web.vo.action_vo import ActionAddVO, ActionQueryVO, ActionTypeDetailQueryVO
 
 router = APIRouter(prefix="/action", tags=["行为模块"])
 
@@ -16,8 +16,13 @@ class ActionController:
     action_service: ActionService = Autowired()
 
     @router.post("/common/list/{current}/{size}", summary="获取行为列表")
-    async def list_actions(self, current: int, size: int, action_query_vo: ActionQueryVO = Depends(),
-                           action_type_detail_query_vo: ActionTypeDetailQueryVO = Body()):
+    async def list_actions(
+        self,
+        current: int,
+        size: int,
+        action_query_vo: ActionQueryVO = Depends(),
+        action_type_detail_query_vo: ActionTypeDetailQueryVO = Body(),
+    ):
         """
         获取行为列表
         :param current:
@@ -30,8 +35,13 @@ class ActionController:
         return ResponseUtil.success(ret)
 
     @router.post("/list/{current}/{size}", summary="获取用户行为列表")
-    async def list_user_actions(self, current: int, size: int, action_query_vo: ActionQueryVO = Depends(),
-                                action_type_detail_query_vo: ActionTypeDetailQueryVO = Body()):
+    async def list_user_actions(
+        self,
+        current: int,
+        size: int,
+        action_query_vo: ActionQueryVO = Depends(),
+        action_type_detail_query_vo: ActionTypeDetailQueryVO = Body(),
+    ):
         """
         获取用户行为列表
         :param current:

@@ -4,12 +4,17 @@
 from fastapi import APIRouter
 from fastapi.params import Depends
 
-from apps.base.core.depend_inject import Controller, Autowired
+from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 from apps.web.service.picture_service import PictureService
 from apps.web.vo.batch_vo import BatchVO
-from apps.web.vo.picture_vo import PictureQueryVO, PictureAddVO, PictureAlbumAddVO, PictureUpdateVO, \
-    PictureAlbumUpdateVO
+from apps.web.vo.picture_vo import (
+    PictureAddVO,
+    PictureAlbumAddVO,
+    PictureAlbumUpdateVO,
+    PictureQueryVO,
+    PictureUpdateVO,
+)
 
 router = APIRouter(prefix="/picture", tags=["图片模块"])
 
