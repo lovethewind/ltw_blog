@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import IntEnum
 from typing import Optional, TypeAlias
 
@@ -54,8 +55,7 @@ class UserCommonInfoDTO(BaseDTO):
     summary: str
     background: str
     address: str
-    # 注册时间戳, 用于前端计算展示
-    register_timestamp: int = 0
+    register_time: datetime
     # 该用户文章数量
     article_count: int = 0
     # 该用户评论数量

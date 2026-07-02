@@ -311,7 +311,6 @@ class UserService:
             raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
         user_id = user.id
         dto = UserCommonInfoDTO.model_validate(user, from_attributes=True)
-        dto.register_timestamp = user.register_time.timestamp()
         # 获取评论数量
         (
             dto.comment_count,

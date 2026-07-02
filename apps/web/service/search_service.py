@@ -1,6 +1,8 @@
 # @Time    : 2024/10/14 14:07
 # @Author  : frank
 # @File    : search_service.py
+import asyncio
+
 from tortoise.expressions import Q
 
 from apps.base.core.depend_inject import Autowired, Component
@@ -12,7 +14,7 @@ from apps.web.core.es.utils.es_util import ESUtil
 from apps.web.core.es.utils.html_util import HtmlUtil
 from apps.web.dao.article_dao import ArticleDao
 from apps.web.dto.article_dto import ArticleBaseInfoDTO, ArticleListDTO
-from apps.web.dto.user_dto import UserBaseInfoDTO
+from apps.web.dto.user_dto import UserCommonInfoDTO
 from apps.web.vo.search_vo import ArticleRecommendVO, ArticleSearchVO, UserSearchVO
 
 
@@ -61,13 +63,16 @@ class SearchService:
         """
         q = User.filter()
         if search_vo.keyword.isdigit():
-            q = q.filter(Q(id=int(search_vo.keyword)) | Q(nickname__icontains=search_vo.keyword))
+            q = q.filter(Q(uid=int(search_vo.keyword)) | Q(nickname__icontains=search_vo.keyword))
         else:
             q = q.filter(nickname__icontains=search_vo.keyword)
-        current = search_vo.current_page if search_vo.current_page > 0 else 1
-        size = search_vo.page_size if search_vo.page_size > 0 else 10
-        total, users = await q.count(), await q.page(current, size).all()
-        return {"total": total, "records": UserBaseInfoDTO.bulk_model_validate(users)}
+        current = search_vo.current_page
+        size = search_vo.page_size
+        total, users = await asyncio.gather(q.count(), q.page(current, size).all())
+        for user in users:
+            user.article_count = await self.article_dao.get_user_article_count(user.id)
+            user.fans_count = await self.redis_util.Action.get_fans_count(user.id)
+        return {"total": total, "records": UserCommonInfoDTO.bulk_model_validate(users)}
 
     async def get_daily_hot_words_list(self):
         """

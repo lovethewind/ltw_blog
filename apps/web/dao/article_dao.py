@@ -7,6 +7,7 @@ from typing import Type
 from typing_extensions import TypeVar
 
 from apps.base.core.depend_inject import Autowired, Component
+from apps.base.enum.article import ArticleStatusEnum
 from apps.base.models.article import Article
 from apps.base.utils.redis_util import RedisUtil
 from apps.web.dao.user_dao import UserDao
@@ -65,3 +66,6 @@ class ArticleDao:
 
     async def get_article(self, article_id: int):
         return await Article.filter(id=article_id).first()
+
+    async def get_user_article_count(self, user_id: int):
+        return await Article.filter(user_id=user_id, status=ArticleStatusEnum.PUBLISHED, is_deleted=False).count()

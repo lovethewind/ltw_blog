@@ -12,7 +12,7 @@ router = APIRouter(prefix="/category", tags=["分类模块"])
 
 @Controller(router)
 class CategoryController:
-    categoryService: CategoryService = Autowired()
+    category_service: CategoryService = Autowired()
 
     @router.get("/common/findAll", summary="查询出所有分类")
     async def find_all(self):
@@ -20,5 +20,5 @@ class CategoryController:
         查询出所有分类
         :return:
         """
-        ret = await self.categoryService.find_all()
+        ret = await self.category_service.find_all()
         return ResponseUtil.success(ret)
