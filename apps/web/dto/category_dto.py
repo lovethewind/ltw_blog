@@ -19,5 +19,6 @@ class TagDTO(BaseDTO):
     name: str
     description: str
     parent_id: int
+    level: int
     index: int
     children: Optional[list["TagDTO"]] = []
