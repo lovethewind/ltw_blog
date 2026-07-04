@@ -25,6 +25,7 @@ class ArticleListDTO(BaseDTO):
     is_original: bool
     status: ArticleStatusEnum
     create_time: datetime.datetime
+    collect_time: Optional[datetime.datetime] = Field(default=None)
     edit_time: Optional[datetime.datetime] = None
     view_count: Optional[int] = Field(default=0)
     like_count: Optional[int] = Field(default=0)

@@ -207,7 +207,7 @@ class ActionService:
             action_time_dict = {action.obj_id: action.create_time for action in actions}
             records = await self.article_dao.get_article_detail_by_ids(article_ids=article_ids)
             for dto in records:
-                dto.create_time = action_time_dict.get(dto.id)  # 获取收藏时间
+                dto.collect_time = action_time_dict.get(dto.id)  # 获取收藏时间
         elif action_query_vo.action_type == ActionTypeEnum.FOLLOW:
             total, actions = await asyncio.gather(
                 q.count(),

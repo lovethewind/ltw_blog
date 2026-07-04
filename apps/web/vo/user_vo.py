@@ -48,7 +48,7 @@ class ChangePasswordTypeEnum(IntEnum):
 class ChangePasswordVO(BaseVO):
     change_type: ChangePasswordTypeEnum
     code: Optional[str] = Field(default=None, min_length=6, max_length=6)
-    random_code: Optional[str] = Field(default=None, min_length=6, max_length=6)
+    random_code: Optional[str] = Field(default=None, min_length=1, max_length=40)
     old_password: Optional[str] = Field(default=None, min_length=1, max_length=30)
     password: str = Field(min_length=6, max_length=30)
 
