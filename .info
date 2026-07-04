@@ -1,11 +1,11 @@
 {
   "project": "ltw-blog",
   "version": "0.0.1",
-  "generatedAt": "2026-07-04T18:49:53+08:00",
+  "generatedAt": "2026-07-04T21:02:42+08:00",
   "branch": "master",
-  "sourceCommit": "6d3f50c3febd8b9f3ac242c5670c0b0b2f8f93b1",
-  "sourceCommitShort": "6d3f50c",
-  "sourceCommitTime": "2026-07-03T00:03:02+08:00",
-  "sourceCommitSubject": "feat:标签支持自定义添加",
+  "sourceCommit": "562dff686b91a437635ad34d3fd5097ff3c514ce",
+  "sourceCommitShort": "562dff6",
+  "sourceCommitTime": "2026-07-04T18:49:53+08:00",
+  "sourceCommitSubject": "feat:个人中心查询优化",
   "note": "pre-commit 生成；sourceCommit 为提交前 HEAD，不能表示本次提交自己的 hash。"
 }

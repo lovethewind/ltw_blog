@@ -54,6 +54,8 @@ class NoticeService:
         )
         records = NoticeDTO.bulk_model_validate(notices)
         for item in records:
+            if item.notice_type == NoticeTypeEnum.SYSTEM:
+                continue
             item.detail.from_user = await manager.get_user_info(item.detail.from_user_id, UserBaseInfoDTO)
         return {"total": total, "records": records}
 
