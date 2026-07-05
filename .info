@@ -1,11 +1,11 @@
 {
   "project": "ltw-blog",
   "version": "0.0.1",
-  "generatedAt": "2026-07-04T21:02:42+08:00",
+  "generatedAt": "2026-07-05T11:35:01+08:00",
   "branch": "master",
-  "sourceCommit": "562dff686b91a437635ad34d3fd5097ff3c514ce",
-  "sourceCommitShort": "562dff6",
-  "sourceCommitTime": "2026-07-04T18:49:53+08:00",
-  "sourceCommitSubject": "feat:个人中心查询优化",
+  "sourceCommit": "403b2b2ae359973a4dc2073460c6f8c98076c8e9",
+  "sourceCommitShort": "403b2b2",
+  "sourceCommitTime": "2026-07-04T21:02:42+08:00",
+  "sourceCommitSubject": "fix:add TagCreateVO",
   "note": "pre-commit 生成；sourceCommit 为提交前 HEAD，不能表示本次提交自己的 hash。"
 }

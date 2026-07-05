@@ -1,4 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
 echo "start deploy ltw-web"
+
+git config pull.rebase false 2>/dev/null || true
 git pull
 docker build -t ltw-web:latest -f apps/web/Dockerfile .
 docker rm -f ltw-web

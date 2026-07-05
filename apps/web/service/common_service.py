@@ -1,9 +1,14 @@
 # @Time    : 2024/9/14 16:50
 # @Author  : frank
 # @File    : common_service.py
+import json
+from typing import Any
+
+import aiohttp
+
 from apps.base.constant.email_constant import EmailConstant
 from apps.base.constant.sms_constant import SmsConstant
-from apps.base.core.depend_inject import Autowired, Component
+from apps.base.core.depend_inject import Autowired, Component, RefreshScope, Value, logger
 from apps.base.enum.common import FeedbackTypeEnum, VerifyCodeTypeEnum
 from apps.base.enum.error_code import ErrorCode
 from apps.base.exception.my_exception import MyException
@@ -18,9 +23,121 @@ from apps.web.vo.user_vo import ValidateAccountExistVO
 
 
 @Component()
+@RefreshScope("github")
 class CommonService:
     redis_util: RedisUtil = Autowired()
     kafka_util: KafkaUtil = Autowired()
+    github_config: dict[str, Any] | None = Value("github")
+
+    async def get_github_commits(self, repo: str, page: int, size: int) -> dict[str, Any]:
+        """
+        分页获取指定仓库的 GitHub 提交动态。
+
+        :param repo: GitHub 仓库名
+        :param page: 页码
+        :param size: 每页数量
+        :return: GitHub 提交动态分页数据
+        """
+        github_config = self.github_config or {}
+        owner = github_config.get("owner")
+        branch = github_config.get("branch")
+        if not owner or not branch:
+            raise MyException(ErrorCode.SERVICE_ERROR)
+
+        cache_ttl = int(github_config.get("cache-ttl") or 600)
+        cache_key = f"github:commits:{owner}:{repo}:{branch}:{page}:{size}"
+        try:
+            cached_data = await self.redis_util.get(cache_key)
+            if cached_data:
+                return json.loads(cached_data)
+        except Exception:
+            logger.warning("读取 GitHub Commit 缓存失败，将回源查询", exc_info=True)
+
+        github_commits, has_next = await self._fetch_github_commits(owner, repo, branch, page, size)
+        result = {
+            "repo": repo,
+            "branch": branch,
+            "page": page,
+            "size": size,
+            "has_next": has_next,
+            "commits": [self._format_github_commit(commit) for commit in github_commits],
+        }
+        try:
+            await self.redis_util.set(cache_key, json.dumps(result, ensure_ascii=False), ex=cache_ttl)
+        except Exception:
+            logger.warning("写入 GitHub Commit 缓存失败", exc_info=True)
+        return result
+
+    async def _fetch_github_commits(
+        self,
+        owner: str,
+        repo: str,
+        branch: str,
+        page: int,
+        size: int,
+    ) -> tuple[list[dict[str, Any]], bool]:
+        """
+        请求 GitHub Commit API。
+
+        :param owner: GitHub 用户名
+        :param repo: GitHub 仓库名
+        :param branch: 固定分支名
+        :param page: 页码
+        :param size: 每页数量
+        :return: GitHub 原始提交列表及是否存在下一页
+        """
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "ltw-blog-web",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        token = (self.github_config or {}).get("token")
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        url = f"https://api.github.com/repos/{owner}/{repo}/commits"
+        params = {"sha": branch, "page": page, "per_page": size}
+
+        try:
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with aiohttp.ClientSession(headers=headers) as session:
+                async with session.get(url, params=params, timeout=timeout) as response:
+                    if response.status == 404:
+                        raise MyException(ErrorCode.DATA_NOT_EXISTS)
+                    if response.status in (403, 429):
+                        raise MyException(ErrorCode.SERVICE_ERROR)
+                    if response.status != 200:
+                        raise MyException(ErrorCode.SERVICE_ERROR)
+                    data = await response.json()
+                    if not isinstance(data, list):
+                        raise MyException(ErrorCode.SERVICE_ERROR)
+                    has_next = 'rel="next"' in response.headers.get("Link", "")
+                    return data, has_next
+        except MyException:
+            raise
+        except (aiohttp.ClientError, TimeoutError, TypeError, ValueError) as exc:
+            logger.warning("请求 GitHub Commit API 失败", exc_info=True)
+            raise MyException(ErrorCode.SERVICE_ERROR) from exc
+
+    @staticmethod
+    def _format_github_commit(commit: dict[str, Any]) -> dict[str, Any]:
+        """
+        将 GitHub Commit 数据转换为前端展示结构。
+
+        :param commit: GitHub 原始 Commit 数据
+        :return: 前端 Commit 动态数据
+        """
+        sha = commit.get("sha") or ""
+        author = commit.get("author") or {}
+        commit_data = commit.get("commit") or {}
+        commit_author = commit_data.get("author") or {}
+        return {
+            "message": commit_data.get("message"),
+            "commit_time": commit_author.get("date"),
+            "avatar_url": author.get("avatar_url"),
+            "html_url": commit.get("html_url"),
+            "sha": sha,
+            "short_sha": sha[:7],
+        }
 
     async def get_website_view_count(self):
         """

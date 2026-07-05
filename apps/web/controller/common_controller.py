@@ -1,7 +1,7 @@
 # @Time    : 2024/9/14 16:50
 # @Author  : frank
 # @File    : common_controller.py
-from fastapi import APIRouter
+from fastapi import APIRouter, Query, Response
 
 from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.decorator_util import avoid_repeat_submit
@@ -16,6 +16,24 @@ router = APIRouter(prefix="/common", tags=["公共接口"])
 @Controller(router)
 class CommonController:
     common_service: CommonService = Autowired()
+
+    @router.get("/common/getGithubCommits", summary="分页获取 GitHub 提交动态")
+    async def get_github_commits(
+        self,
+        repo: str = Query(min_length=1, max_length=100, pattern=r"^[A-Za-z0-9._-]+$"),
+        page: int = Query(default=1, ge=1),
+        size: int = Query(default=10, ge=1, le=30),
+    ) -> Response:
+        """
+        分页获取 GitHub 提交动态。
+
+        :param repo: GitHub 仓库名
+        :param page: 页码
+        :param size: 每页数量
+        :return: 统一响应
+        """
+        ret = await self.common_service.get_github_commits(repo, page, size)
+        return ResponseUtil.success(ret)
 
     @router.get("/common/getWebsiteViewCount", summary="获取网站访问量")
     async def get_website_view_count(self):
