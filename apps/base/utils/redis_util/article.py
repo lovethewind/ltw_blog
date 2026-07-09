@@ -1,8 +1,10 @@
 import time
 
 from redis.asyncio import Redis
+from sqlalchemy import func, select
 
 from apps.base.constant.redis_constant import RedisConstant
+from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.action import ActionTypeEnum, ObjectTypeEnum
 from apps.base.enum.comment import CommentStatusEnum
 from apps.base.models.action import Action, ActionCount
@@ -20,15 +22,21 @@ class ArticleMethod:
     async def get_article_like_count(self, article_id: int) -> int:
         """
         文章点赞数
-        :param article_id: 文章id
-        :return:
+
+        :param article_id: 文章id。
+        :return: 文章点赞数。
         """
         key = str(article_id)
         ret = await self._redis.hget(RedisConstant.ARTICLE_LIKE_COUNT_MAP_KEY, key)
         if ret is None:
-            ret = await Action.filter(
-                obj_id=article_id, obj_type=ObjectTypeEnum.ARTICLE, action_type=ActionTypeEnum.LIKE, status=True
-            ).count()
+            ret = await db.scalar(
+                select(func.count(Action.id)).where(
+                    Action.obj_id == article_id,
+                    Action.obj_type == ObjectTypeEnum.ARTICLE,
+                    Action.action_type == ActionTypeEnum.LIKE,
+                    Action.status.is_(True),
+                )
+            )
             await self._redis.hset(RedisConstant.ARTICLE_LIKE_COUNT_MAP_KEY, key, str(ret))
         return int(ret)
 
@@ -61,15 +69,21 @@ class ArticleMethod:
     async def get_article_collect_count(self, article_id: int) -> int:
         """
         文章收藏数
-        :param article_id: 文章id
-        :return:
+
+        :param article_id: 文章id。
+        :return: 文章收藏数。
         """
         key = str(article_id)
         ret = await self._redis.hget(RedisConstant.ARTICLE_COLLECT_COUNT_MAP_KEY, key)
         if ret is None:
-            ret = await Action.filter(
-                obj_id=article_id, obj_type=ObjectTypeEnum.ARTICLE, action_type=ActionTypeEnum.COLLECT, status=True
-            ).count()
+            ret = await db.scalar(
+                select(func.count(Action.id)).where(
+                    Action.obj_id == article_id,
+                    Action.obj_type == ObjectTypeEnum.ARTICLE,
+                    Action.action_type == ActionTypeEnum.COLLECT,
+                    Action.status.is_(True),
+                )
+            )
             await self._redis.hset(RedisConstant.ARTICLE_COLLECT_COUNT_MAP_KEY, key, str(ret))
         return int(ret)
 
@@ -102,15 +116,20 @@ class ArticleMethod:
     async def get_article_comment_count(self, article_id: int) -> int:
         """
         文章评论数
-        :param article_id: 文章id
-        :return:
+
+        :param article_id: 文章id。
+        :return: 文章评论数。
         """
         key = str(article_id)
         ret = await self._redis.hget(RedisConstant.ARTICLE_COMMENT_COUNT_MAP_KEY, key)
         if ret is None:
-            ret = await Comment.filter(
-                obj_id=article_id, obj_type=ObjectTypeEnum.ARTICLE, status=CommentStatusEnum.PASS
-            ).count()
+            ret = await db.scalar(
+                select(func.count(Comment.id)).where(
+                    Comment.obj_id == article_id,
+                    Comment.obj_type == ObjectTypeEnum.ARTICLE,
+                    Comment.status == CommentStatusEnum.PASS,
+                )
+            )
             await self._redis.hset(RedisConstant.ARTICLE_COMMENT_COUNT_MAP_KEY, key, str(ret))
         return int(ret)
 
@@ -134,19 +153,20 @@ class ArticleMethod:
     async def get_article_view_count(self, article_id: int) -> int:
         """
         文章访问数
-        :param article_id: 文章id
-        :return:
+
+        :param article_id: 文章id。
+        :return: 文章访问数。
         """
         key = str(article_id)
         ret = await self._redis.hget(RedisConstant.ARTICLE_VIEW_COUNT_MAP_KEY, key)
         if ret is None:
             ret = (
-                await (
-                    ActionCount.filter(
-                        obj_id=article_id, obj_type=ObjectTypeEnum.ARTICLE, action_type=ActionTypeEnum.VIEW
+                await db.scalar(
+                    select(ActionCount.count).where(
+                        ActionCount.obj_id == article_id,
+                        ActionCount.obj_type == ObjectTypeEnum.ARTICLE,
+                        ActionCount.action_type == ActionTypeEnum.VIEW,
                     )
-                    .first()
-                    .values_list("count", flat=True)
                 )
                 or 0
             )

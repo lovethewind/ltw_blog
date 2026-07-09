@@ -1,4 +1,5 @@
-from tortoise import fields
+from sqlalchemy import BigInteger, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column
 
 from apps.base.enum.common import CheckStatusEnum
 from apps.base.enum.picture import AlbumTypeEnum
@@ -6,33 +7,39 @@ from apps.base.models.base import BaseModel
 
 
 class Picture(BaseModel):
-    user_id = fields.BigIntField(description="用户id")
-    album_id = fields.BigIntField(description="图册id")
-    description = fields.CharField(max_length=200, default="", description="说明")
-    url = fields.CharField(max_length=512, description="图片地址")
-    thumb_url = fields.CharField(max_length=512, default="", description="图片缩略图")
-    size = fields.IntField(default=0, description="图片大小")
-    width = fields.IntField(default=0, description="图片宽度")
-    height = fields.IntField(default=0, description="图片高度")
-    status = fields.IntEnumField(
-        CheckStatusEnum, defalut=CheckStatusEnum.PASS, description="审核状态: 1: 已通过 2:审核中 3:拒绝"
-    )
+    """
+    图片模型。
+    """
 
-    class Meta:
-        table = "t_picture"
-        table_description = "图片表"
+    __tablename__ = "t_picture"
+    __table_args__ = {"comment": "图片表"}
+
+    user_id: Mapped[int] = mapped_column(BigInteger, comment="用户id")
+    album_id: Mapped[int] = mapped_column(BigInteger, comment="图册id")
+    description: Mapped[str] = mapped_column(String(200), default="", comment="说明")
+    url: Mapped[str] = mapped_column(String(512), comment="图片地址")
+    thumb_url: Mapped[str] = mapped_column(String(512), default="", comment="图片缩略图")
+    size: Mapped[int] = mapped_column(Integer, default=0, comment="图片大小")
+    width: Mapped[int] = mapped_column(Integer, default=0, comment="图片宽度")
+    height: Mapped[int] = mapped_column(Integer, default=0, comment="图片高度")
+    status: Mapped[int] = mapped_column(
+        Integer, default=CheckStatusEnum.PASS.value, comment="审核状态: 1: 已通过 2:审核中 3:拒绝"
+    )
 
 
 class PictureAlbum(BaseModel):
-    user_id = fields.BigIntField(description="用户id")
-    name = fields.CharField(max_length=20, description="图册名")
-    description = fields.CharField(max_length=200, default="", description="图册描述")
-    cover = fields.CharField(max_length=512, description="图册封面")
-    status = fields.IntEnumField(
-        CheckStatusEnum, defalut=CheckStatusEnum.PASS, description="审核状态: 1: 已通过 2:审核中 3:拒绝"
-    )
-    album_type = fields.IntEnumField(AlbumTypeEnum, defalut=AlbumTypeEnum.PRIVATE, description="类型 1公开 2私密")
+    """
+    图册模型。
+    """
 
-    class Meta:
-        table = "t_picture_album"
-        table_description = "图册表"
+    __tablename__ = "t_picture_album"
+    __table_args__ = {"comment": "图册表"}
+
+    user_id: Mapped[int] = mapped_column(BigInteger, comment="用户id")
+    name: Mapped[str] = mapped_column(String(20), comment="图册名")
+    description: Mapped[str] = mapped_column(String(200), default="", comment="图册描述")
+    cover: Mapped[str] = mapped_column(String(512), comment="图册封面")
+    status: Mapped[int] = mapped_column(
+        Integer, default=CheckStatusEnum.PASS.value, comment="审核状态: 1: 已通过 2:审核中 3:拒绝"
+    )
+    album_type: Mapped[int] = mapped_column(Integer, default=AlbumTypeEnum.PRIVATE.value, comment="类型 1公开 2私密")

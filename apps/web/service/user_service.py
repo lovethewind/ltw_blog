@@ -2,12 +2,13 @@ import asyncio
 import datetime
 import logging
 
+from sqlalchemy import func, or_, select, update
+from sqlalchemy.exc import IntegrityError
 from starlette.requests import Request
-from tortoise import transactions
-from tortoise.expressions import Q
 
 from apps.base.constant.email_constant import EmailConstant
 from apps.base.core.depend_inject import Autowired, Component, RefreshScope, Value
+from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.article import ArticleStatusEnum
 from apps.base.enum.comment import CommentStatusEnum
 from apps.base.enum.common import VerifyCodeTypeEnum
@@ -70,21 +71,24 @@ class UserService:
     MAX_ERROR_TIMES: str = Value("app.web.max-error-login-times")
     UNBLOCK_LOGIN_URL: str = Value("app.web.unblock-login-url")
 
-    async def login(self, login_vo: LoginVO):
+    async def login(self, login_vo: LoginVO) -> dict[str, str]:
         """
-        多种方式登录
+        多种方式登录。
+
+        :param login_vo: 登录参数。
+        :return: 登录令牌。
         """
         request = ContextVars.request.get()
-        q = User.filter()
+        stmt = select(User)
         if login_vo.username:
-            q = q.filter(username=login_vo.username)
+            stmt = stmt.where(User.username == login_vo.username)
         elif login_vo.email:
-            q = q.filter(email=login_vo.email)
+            stmt = stmt.where(User.email == login_vo.email)
         elif login_vo.mobile:
-            q = q.filter(mobile=login_vo.mobile)
+            stmt = stmt.where(User.mobile == login_vo.mobile)
         else:
             raise MyException(ErrorCode.PARAM_ERROR)
-        user = await q.first()
+        user = await db.model_first(stmt)
         if not user:
             raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
         error_count = await self.redis_util.User.get_user_error_count(user.id)
@@ -102,13 +106,15 @@ class UserService:
                         # 禁止登录
                         now = datetime.datetime.now()
                         end_time = now + datetime.timedelta(minutes=30)
-                        async with transactions.in_transaction():
-                            user_restrict = await UserRestriction.create(
+                        async with db.atomic() as session:
+                            user_restrict = UserRestriction(
                                 user_id=user.id,
                                 restrict_type=UserRestrictionTypeEnum.BAN,
                                 start_time=now,
                                 end_time=end_time,
                             )
+                            session.add(user_restrict)
+                            await session.flush()
                             key = f"{user_restrict.id}:{user.id}"
                             await self.redis_util.User.add_unlock_key(random_code, key)
                             await self.kafka_util.send_email(
@@ -131,9 +137,18 @@ class UserService:
         user.last_login_ip = IpUtil.get_ip_address(request)
         user.address = IpUtil.get_address_from_request(request)
         user.last_login_time = datetime.datetime.now()
+        update_stmt = (
+            update(User)
+            .where(User.id == user.id)
+            .values(
+                last_login_ip=user.last_login_ip,
+                address=user.address,
+                last_login_time=user.last_login_time,
+            )
+        )
         await asyncio.gather(
             self.redis_util.User.delete_user_error_count(user.id),
-            user.save(update_fields=("last_login_ip", "address", "last_login_time")),
+            db.execute(update_stmt),
         )
         token = TokenUtil.create_token(user.id, user.username)
         return {"token": token}
@@ -141,39 +156,44 @@ class UserService:
     @staticmethod
     async def _check_user_restriction(user: User) -> UserRestrictionDTO:
         """
-        用户限制检查
+        检查用户限制并自动解除过期限制。
+
+        :param user: 用户对象。
+        :return: 用户限制状态。
         """
         user_restriction_dto = UserRestrictionDTO()
-        user_restrictions = await UserRestriction.filter(user_id=user.id, is_cancel=False).all()
-        now = datetime.datetime.now()
-        update_list = []
-        for user_restriction in user_restrictions:
-            if not (user_restriction.is_forever or user_restriction.start_time <= now <= user_restriction.end_time):
-                user_restriction.is_cancel = True
-                user_restriction.cancel_time = now
-                user_restriction.cancel_reason = "超过封禁时间，自动解除"
-                update_list.append(user_restriction)
-                continue
-            match user_restriction.restrict_type:
-                case UserRestrictionTypeEnum.BAN:  # 封禁
-                    user.user_forbidden = True
-                    user_restriction_dto.user_forbidden = True
-                case UserRestrictionTypeEnum.MUTE:  # 禁言
-                    user.comment_forbidden = True
-                    user_restriction_dto.comment_forbidden = True
-        if update_list:
-            await UserRestriction.bulk_update(
-                update_list, fields=("is_cancel", "cancel_time", "cancel_reason"), batch_size=500
+        async with db.atomic() as session:
+            result = await session.execute(
+                select(UserRestriction).where(
+                    UserRestriction.user_id == user.id,
+                    UserRestriction.is_cancel.is_(False),
+                )
             )
+            user_restrictions = result.scalars().all()
+            now = datetime.datetime.now()
+            for user_restriction in user_restrictions:
+                if not (user_restriction.is_forever or user_restriction.start_time <= now <= user_restriction.end_time):
+                    user_restriction.is_cancel = True
+                    user_restriction.cancel_time = now
+                    user_restriction.cancel_reason = "超过封禁时间，自动解除"
+                    continue
+                match user_restriction.restrict_type:
+                    case UserRestrictionTypeEnum.BAN:  # 封禁
+                        user.user_forbidden = True
+                        user_restriction_dto.user_forbidden = True
+                    case UserRestrictionTypeEnum.MUTE:  # 禁言
+                        user.comment_forbidden = True
+                        user_restriction_dto.comment_forbidden = True
         return user_restriction_dto
 
-    async def info(self):
+    async def info(self) -> UserInfoDTO:
         """
-        获取自身用户信息
-        :return UserInfoDTO
+        获取自身用户信息。
+
+        :return: 用户信息。
         """
         user_id = ContextVars.token_user_id.get()
-        user = await User.filter(id=user_id).first()
+        user = await db.model_first(select(User).where(User.id == user_id))
         if not user:
             raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
         user.user_restriction = UserRestrictionDTO()
@@ -181,26 +201,43 @@ class UserService:
         dto.email = DesensitizedUtil.email(dto.email)
         dto.mobile = DesensitizedUtil.mobile_phone(dto.mobile)
         dto.wechat = DesensitizedUtil.password(dto.wechat)
-        dto.article_collect_set, dto.article_like_set, dto.comment_like_set, dto.user_restriction = (
-            await asyncio.gather(
-                self.redis_util.User.get_user_collect_articles(user_id),
-                self.redis_util.User.get_user_like_articles(user_id),
-                self.redis_util.User.get_user_like_comments(user_id),
-                self._check_user_restriction(user),
-            )
+        (
+            dto.article_collect_set,
+            dto.article_like_set,
+            dto.comment_like_set,
+            dto.user_restriction,
+            dto.user_settings,
+        ) = await asyncio.gather(
+            self.redis_util.User.get_user_collect_articles(user_id),
+            self.redis_util.User.get_user_like_articles(user_id),
+            self.redis_util.User.get_user_like_comments(user_id),
+            self._check_user_restriction(user),
+            self.user_dao.get_user_settings(user_id),
         )
-        # 获取用户配置
-        dto.user_settings = await self.user_dao.get_user_settings(user_id)
         return dto
 
-    async def unblock(self, key: str):
+    async def unblock(self, key: str) -> None:
+        """
+        根据解封密钥解除用户登录限制。
+
+        :param key: 解封密钥。
+        :return: None。
+        """
         value = await self.redis_util.User.get_unlock_key(key)
         if not value:
             return
         restrict_id, user_id = value
-        await self.redis_util.User.delete_user_error_count(user_id)
-        await UserRestriction.filter(id=restrict_id).update(
-            is_cancel=True, cancel_time=datetime.datetime.now(), cancel_reason="用户点击邮件链接解封"
+        await asyncio.gather(
+            self.redis_util.User.delete_user_error_count(user_id),
+            db.execute(
+                update(UserRestriction)
+                .where(UserRestriction.id == restrict_id)
+                .values(
+                    is_cancel=True,
+                    cancel_time=datetime.datetime.now(),
+                    cancel_reason="用户点击邮件链接解封",
+                )
+            ),
         )
         await self.redis_util.User.delete_unlock_key(key)
 
@@ -227,11 +264,12 @@ class UserService:
         )
         user.gender = GenderEnum.SECRET
 
-    async def email_register(self, register_vo: RegisterVO):
+    async def email_register(self, register_vo: RegisterVO) -> dict[str, str]:
         """
-        用户邮箱注册
-        :param register_vo RegisterVO
-        :return token
+        用户邮箱注册。
+
+        :param register_vo: 注册参数。
+        :return: 登录令牌。
         """
         request = ContextVars.request.get()
         if not register_vo.email or not register_vo.code:
@@ -240,24 +278,33 @@ class UserService:
             register_vo.email, register_vo.code, VerifyCodeTypeEnum.REGISTER
         ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
-        exist_user = await User.filter(username=register_vo.username, email=register_vo.email).exists()
-        if exist_user:
-            raise MyException(ErrorCode.ACCOUNT_HAS_EXIST)
         user = User()
         user.email = register_vo.email
         await self._fill_register_base_info(user, request, register_vo)
-        await asyncio.gather(
-            user.save(), self.redis_util.VerifyCode.delete_verify_code(register_vo.email, VerifyCodeTypeEnum.REGISTER)
-        )
+        async with db.atomic() as session:
+            exist_user_id = await session.scalar(
+                select(User.id).where(
+                    or_(
+                        User.username == register_vo.username,
+                        User.email == register_vo.email,
+                    )
+                )
+            )
+            if exist_user_id is not None:
+                raise MyException(ErrorCode.ACCOUNT_HAS_EXIST)
+            session.add(user)
+            await session.flush()
+        await self.redis_util.VerifyCode.delete_verify_code(register_vo.email, VerifyCodeTypeEnum.REGISTER)
         asyncio.create_task(self._send_notice(user))
         token = TokenUtil.create_token(user.id, user.username)
         return {"token": token}
 
-    async def mobile_register(self, register_vo: RegisterVO):
+    async def mobile_register(self, register_vo: RegisterVO) -> dict[str, str]:
         """
-        用户手机号注册
-        :param register_vo RegisterVO
-        :return token
+        用户手机号注册。
+
+        :param register_vo: 注册参数。
+        :return: 登录令牌。
         """
         request = ContextVars.request.get()
         if not register_vo.mobile or not register_vo.code:
@@ -266,27 +313,36 @@ class UserService:
             register_vo.mobile, register_vo.code, VerifyCodeTypeEnum.REGISTER
         ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
-        exist_user = await User.filter(mobile=register_vo.mobile).exists()
-        if exist_user:
-            raise MyException(ErrorCode.ACCOUNT_HAS_EXIST)
         user = User()
         user.mobile = register_vo.mobile
         await self._fill_register_base_info(user, request, register_vo)
-        await asyncio.gather(
-            user.save(), self.redis_util.VerifyCode.delete_verify_code(register_vo.mobile, VerifyCodeTypeEnum.REGISTER)
-        )
+        async with db.atomic() as session:
+            exist_user_id = await session.scalar(
+                select(User.id).where(
+                    or_(
+                        User.username == register_vo.username,
+                        User.mobile == register_vo.mobile,
+                    )
+                )
+            )
+            if exist_user_id is not None:
+                raise MyException(ErrorCode.ACCOUNT_HAS_EXIST)
+            session.add(user)
+            await session.flush()
+        await self.redis_util.VerifyCode.delete_verify_code(register_vo.mobile, VerifyCodeTypeEnum.REGISTER)
         asyncio.create_task(self._send_notice(user))
         token = TokenUtil.create_token(user.id, user.username)
         return {"token": token}
 
-    async def get_user_info_by_uid(self, uid: int):
+    async def get_user_info_by_uid(self, uid: int) -> UserCommonInfoDTO:
         """
-        获取某一用户信息
-        :param uid: uid
-        :return:
+        根据 UID 获取用户信息。
+
+        :param uid: 用户 UID。
+        :return: 用户公开信息。
         """
         login_user_id = ContextVars.token_user_id.get()
-        user = await User.filter(uid=uid).first()
+        user = await db.model_first(select(User).where(User.uid == uid))
         if not user:
             raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
         dto = UserCommonInfoDTO.model_validate(user, from_attributes=True)
@@ -299,42 +355,58 @@ class UserService:
         )
         return dto
 
-    async def get_user_info(self, user_id: int):
+    async def get_user_info(self, user_id: int) -> UserCommonInfoDTO:
         """
-        获取某一用户信息
-        :param user_id: user_id/uid
-        :return:
+        根据用户 ID 获取公开信息。
+
+        :param user_id: 用户 ID。
+        :return: 用户公开信息。
         """
         login_user_id = ContextVars.token_user_id.get()
-        user = await User.filter(id=user_id).first()
+        user = await db.model_first(select(User).where(User.id == user_id))
         if not user:
             raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
         user_id = user.id
         dto = UserCommonInfoDTO.model_validate(user, from_attributes=True)
-        # 获取评论数量
         (
             dto.comment_count,
             dto.article_count,
+            my_article_ids,
             dto.view_count,
             dto.is_followed,
             dto.is_my_fans,
             dto.fans_count,
             dto.is_friend,
             dto.is_blocked,
+            dto.user_settings,
         ) = await asyncio.gather(
-            Comment.filter(user_id=user_id, status=CommentStatusEnum.PASS).count(),  # 获取评论数量
-            Article.filter(
-                user_id=user_id, status=ArticleStatusEnum.PUBLISHED, is_deleted=False
-            ).count(),  # 获取文章数量
+            db.scalar(
+                select(func.count(Comment.id)).where(
+                    Comment.user_id == user_id,
+                    Comment.status == CommentStatusEnum.PASS,
+                )
+            ),
+            db.scalar(
+                select(func.count(Article.id)).where(
+                    Article.user_id == user_id,
+                    Article.status == ArticleStatusEnum.PUBLISHED,
+                    Article.is_deleted.is_(False),
+                )
+            ),
+            db.model_all(
+                select(Article.id).where(
+                    Article.user_id == user_id,
+                    Article.is_deleted.is_(False),
+                )
+            ),
             self.redis_util.User.get_view_count(user_id),
-            self.redis_util.Action.is_followed(login_user_id, user_id),  # 获取粉丝信息
+            self.redis_util.Action.is_followed(login_user_id, user_id),
             self.redis_util.Action.is_fans(login_user_id, user_id),
             self.redis_util.Action.get_fans_count(user_id),
             self.chat_dao.is_friend(login_user_id, user_id),
             self.chat_dao.is_blocked(login_user_id, user_id),
+            self.user_dao.get_user_common_settings(user_id),
         )
-        my_article_ids = await Article.filter(user_id=user_id, is_deleted=False).values_list("id", flat=True)
-        # 获取成就相关信息
         dto.article_view_count, dto.article_comment_count, dto.article_like_me_count, dto.article_collect_count = (
             await asyncio.gather(
                 self.redis_util.Article.get_articles_view_count(my_article_ids),
@@ -343,8 +415,6 @@ class UserService:
                 self.redis_util.Article.get_articles_collect_count(my_article_ids),
             )
         )
-        # 获取用户配置
-        dto.user_settings = await self.user_dao.get_user_common_settings(user_id)
         return dto
 
     async def add_view_count(self, add_user_view_count_vo: AddUserViewCountVO):
@@ -355,9 +425,12 @@ class UserService:
         """
         await self.redis_util.User.add_view_count(add_user_view_count_vo.user_id)
 
-    async def change_password_by_find(self, forget_password_vo: ForgetPasswordVO):
+    async def change_password_by_find(self, forget_password_vo: ForgetPasswordVO) -> None:
         """
-        通过找回密码修改密码
+        通过找回密码修改密码。
+
+        :param forget_password_vo: 找回密码参数。
+        :return: None。
         """
         if forget_password_vo.email:
             key = "email"
@@ -373,18 +446,22 @@ class UserService:
             check, forget_password_vo.code, VerifyCodeTypeEnum.FIND_PASSWORD
         ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
-        await asyncio.gather(
-            User.filter(**{key: value}).update(password=EncryptUtil.encrypt(forget_password_vo.password)),
-            self.redis_util.VerifyCode.delete_verify_code(check, VerifyCodeTypeEnum.FIND_PASSWORD),
+        await db.execute(
+            update(User)
+            .where(getattr(User, key) == value)
+            .values(password=EncryptUtil.encrypt(forget_password_vo.password))
         )
+        await self.redis_util.VerifyCode.delete_verify_code(check, VerifyCodeTypeEnum.FIND_PASSWORD)
 
-    async def change_password_by_login(self, change_password_vo: ChangePasswordVO):
+    async def change_password_by_login(self, change_password_vo: ChangePasswordVO) -> None:
         """
-        通过登录修改密码
-        :param change_password_vo ChangePasswordVO
+        通过登录修改密码。
+
+        :param change_password_vo: 修改密码参数。
+        :return: None。
         """
         user_id = ContextVars.token_user_id.get()
-        user = await User.filter(id=user_id).first()
+        user = await db.model_first(select(User).where(User.id == user_id))
         if not user:
             raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
         match change_password_vo.change_type:
@@ -408,8 +485,9 @@ class UserService:
                 if user.wechat != open_id:
                     raise MyException(ErrorCode.WECHAT_NOT_SCAN)
                 await self.redis_util.Wechat.delete_random_code(change_password_vo.random_code)
-        user.password = EncryptUtil.encrypt(change_password_vo.password)
-        await user.save(update_fields=("password",))
+        await db.execute(
+            update(User).where(User.id == user_id).values(password=EncryptUtil.encrypt(change_password_vo.password))
+        )
 
     async def update_user_info(self, user_update_vo: UserUpdateVO) -> None:
         """
@@ -419,55 +497,66 @@ class UserService:
         :return: None
         """
         user_id = ContextVars.token_user_id.get()
-        await User.filter(id=user_id).update(**user_update_vo.model_dump(exclude_none=True))
+        await db.execute(update(User).where(User.id == user_id).values(**user_update_vo.model_dump(exclude_none=True)))
         try:
             await manager.update_user_info(user_id)
         except Exception as e:
             logger.exception(f"用户[{user_id}]Redis 资料缓存更新失败 {e}")
 
-    async def save_user_settings(self, user_settings: UserSettingsType):
+    async def save_user_settings(self, user_settings: UserSettingsType) -> None:
         """
-        保存用户设置
-        :param user_settings:
-        :return:
-        """
-        user_id = ContextVars.token_user_id.get()
-        db_user_settings = await UserSettings.filter(user_id=user_id, setting_key__in=user_settings.keys())
-        db_user_settings_dict = {item.setting_key: item for item in db_user_settings}
-        exists_user_settings = [item.setting_key for item in db_user_settings]
-        save_items = []
-        update_items = []
-        for key, value in user_settings.items():
-            if key not in exists_user_settings:
-                item = UserSettings(user_id=user_id, setting_key=key, setting_value=value)
-                save_items.append(item)
-            else:
-                item = db_user_settings_dict.get(key)
-                if item.setting_value != value:
-                    item.setting_value = value
-                    update_items.append(item)
-        async with transactions.in_transaction():
-            if save_items:
-                await UserSettings.bulk_create(save_items)
-            if update_items:
-                await UserSettings.bulk_update(update_items, ["setting_value"])
+        保存用户设置。
 
-    async def change_email_bind(self, change_email_bind_vo: ChangeEmailBindVO):
-        """
-        修改邮箱绑定
-        :param change_email_bind_vo:
-        :return:
+        :param user_settings: 用户设置。
+        :return: None。
         """
         user_id = ContextVars.token_user_id.get()
-        exist_user = await User.filter(email=change_email_bind_vo.email).exists()
-        if exist_user:
+        async with db.atomic() as session:
+            result = await session.execute(
+                select(UserSettings).where(
+                    UserSettings.user_id == user_id,
+                    UserSettings.setting_key.in_(user_settings.keys()),
+                )
+            )
+            db_user_settings = result.scalars().all()
+            db_user_settings_dict = {item.setting_key: item for item in db_user_settings}
+            save_items = []
+            for key, value in user_settings.items():
+                setting_value = str(value)
+                item = db_user_settings_dict.get(key)
+                if item is None:
+                    save_items.append(
+                        UserSettings(
+                            user_id=user_id,
+                            setting_key=key,
+                            setting_value=setting_value,
+                        )
+                    )
+                elif item.setting_value != setting_value:
+                    item.setting_value = setting_value
+            if save_items:
+                session.add_all(save_items)
+
+    async def change_email_bind(self, change_email_bind_vo: ChangeEmailBindVO) -> None:
+        """
+        修改邮箱绑定。
+
+        :param change_email_bind_vo: 邮箱换绑参数。
+        :return: None。
+        """
+        user_id = ContextVars.token_user_id.get()
+        exist_user_id, user = await asyncio.gather(
+            db.scalar(select(User.id).where(User.email == change_email_bind_vo.email)),
+            db.model_first(select(User).where(User.id == user_id)),
+        )
+        if exist_user_id is not None:
             raise MyException(ErrorCode.EMAIL_HAS_EXISTS)
-        user = await User.filter(id=user_id).first()
         if not user:
             raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
+        old_email = user.email
         # 验证旧邮箱验证码
-        if user.email and not await self.redis_util.VerifyCode.check_verify_code(
-            user.email, change_email_bind_vo.old_code, VerifyCodeTypeEnum.CHANGE_BIND
+        if old_email and not await self.redis_util.VerifyCode.check_verify_code(
+            old_email, change_email_bind_vo.old_code, VerifyCodeTypeEnum.CHANGE_BIND
         ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
         # 验证新邮箱验证码
@@ -475,29 +564,45 @@ class UserService:
             change_email_bind_vo.email, change_email_bind_vo.code, VerifyCodeTypeEnum.CHANGE_BIND
         ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
-        user.email = change_email_bind_vo.email
-        await user.save(update_fields=("email",))
-        await asyncio.gather(
-            self.redis_util.VerifyCode.delete_verify_code(user.email, VerifyCodeTypeEnum.CHANGE_BIND),
-            self.redis_util.VerifyCode.delete_verify_code(change_email_bind_vo.email, VerifyCodeTypeEnum.CHANGE_BIND),
-        )
+        try:
+            await db.execute(update(User).where(User.id == user_id).values(email=change_email_bind_vo.email))
+        except IntegrityError as e:
+            raise MyException(ErrorCode.EMAIL_HAS_EXISTS) from e
+        clear_tasks = [
+            self.redis_util.VerifyCode.delete_verify_code(
+                change_email_bind_vo.email,
+                VerifyCodeTypeEnum.CHANGE_BIND,
+            )
+        ]
+        if old_email:
+            clear_tasks.append(
+                self.redis_util.VerifyCode.delete_verify_code(
+                    old_email,
+                    VerifyCodeTypeEnum.CHANGE_BIND,
+                )
+            )
+        await asyncio.gather(*clear_tasks)
 
-    async def change_mobile_bind(self, change_mobile_bind_vo: ChangeMobileBindVO):
+    async def change_mobile_bind(self, change_mobile_bind_vo: ChangeMobileBindVO) -> None:
         """
-        修改手机绑定
-        :param change_mobile_bind_vo:
-        :return:
+        修改手机绑定。
+
+        :param change_mobile_bind_vo: 手机号换绑参数。
+        :return: None。
         """
-        exist_user = await User.filter(mobile=change_mobile_bind_vo.mobile).exists()
-        if exist_user:
-            raise MyException(ErrorCode.MOBILE_HAS_EXISTS)
         user_id = ContextVars.token_user_id.get()
-        user = await User.filter(id=user_id).first()
+        exist_user_id, user = await asyncio.gather(
+            db.scalar(select(User.id).where(User.mobile == change_mobile_bind_vo.mobile)),
+            db.model_first(select(User).where(User.id == user_id)),
+        )
+        if exist_user_id is not None:
+            raise MyException(ErrorCode.MOBILE_HAS_EXISTS)
         if not user:
             raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
+        old_mobile = user.mobile
         # 验证旧手机号验证码
-        if user.mobile and not await self.redis_util.VerifyCode.check_verify_code(
-            user.mobile, change_mobile_bind_vo.old_code, VerifyCodeTypeEnum.CHANGE_BIND
+        if old_mobile and not await self.redis_util.VerifyCode.check_verify_code(
+            old_mobile, change_mobile_bind_vo.old_code, VerifyCodeTypeEnum.CHANGE_BIND
         ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
         # 验证新手机号验证码
@@ -505,29 +610,56 @@ class UserService:
             change_mobile_bind_vo.mobile, change_mobile_bind_vo.code, VerifyCodeTypeEnum.CHANGE_BIND
         ):
             raise MyException(ErrorCode.CODE_VERIFY_ERROR)
-        user.mobile = change_mobile_bind_vo.mobile
-        await user.save(update_fields=("mobile",))
-        await asyncio.gather(
-            self.redis_util.VerifyCode.delete_verify_code(user.mobile, VerifyCodeTypeEnum.CHANGE_BIND),
-            self.redis_util.VerifyCode.delete_verify_code(change_mobile_bind_vo.mobile, VerifyCodeTypeEnum.CHANGE_BIND),
-        )
+        try:
+            await db.execute(update(User).where(User.id == user_id).values(mobile=change_mobile_bind_vo.mobile))
+        except IntegrityError as e:
+            raise MyException(ErrorCode.MOBILE_HAS_EXISTS) from e
+        clear_tasks = [
+            self.redis_util.VerifyCode.delete_verify_code(
+                change_mobile_bind_vo.mobile,
+                VerifyCodeTypeEnum.CHANGE_BIND,
+            )
+        ]
+        if old_mobile:
+            clear_tasks.append(
+                self.redis_util.VerifyCode.delete_verify_code(
+                    old_mobile,
+                    VerifyCodeTypeEnum.CHANGE_BIND,
+                )
+            )
+        await asyncio.gather(*clear_tasks)
 
-    async def wechat_register(self, register_vo: RegisterVO):
+    async def wechat_register(self, register_vo: RegisterVO) -> dict[str, str]:
         """
-        微信注册
-        :param register_vo:
-        :return:
+        微信注册。
+
+        :param register_vo: 注册参数。
+        :return: 登录令牌。
         """
         request = ContextVars.request.get()
         open_id = await self.redis_util.Wechat.get_random_code_openid(register_vo.code)
         if not open_id:
             raise MyException(ErrorCode.WECHAT_VERIFY_TIMEOUT)
-        if await User.filter(Q(username=register_vo.username) | Q(wechat=register_vo.code)).exists():
-            raise MyException(ErrorCode.ACCOUNT_HAS_EXIST)
         user = User()
         user.wechat = open_id
         await self._fill_register_base_info(user, request, register_vo)
-        await asyncio.gather(user.save(), self.redis_util.Wechat.delete_random_code_openid(register_vo.code))
+        async with db.atomic() as session:
+            exist_user_id = await session.scalar(
+                select(User.id).where(
+                    or_(
+                        User.username == register_vo.username,
+                        User.wechat == open_id,
+                    )
+                )
+            )
+            if exist_user_id is not None:
+                raise MyException(ErrorCode.ACCOUNT_HAS_EXIST)
+            session.add(user)
+            try:
+                await session.flush()
+            except IntegrityError as e:
+                raise MyException(ErrorCode.ACCOUNT_HAS_EXIST) from e
+        await self.redis_util.Wechat.delete_random_code_openid(register_vo.code)
         asyncio.create_task(self._send_notice(user))
         token = TokenUtil.create_token(user.id, user.username)
         return {"token": token}
@@ -544,11 +676,12 @@ class UserService:
         ret = {"code": code, "img": result}
         return ret
 
-    async def check_scan(self, code: str):
+    async def check_scan(self, code: str) -> WechatScanResultDTO:
         """
-        验证是否已经扫码
-        :param code:
-        :return:
+        验证是否已经扫码。
+
+        :param code: 随机码。
+        :return: 扫码结果。
         """
         dto = WechatScanResultDTO()
         if not await self.redis_util.Wechat.exist_random_code_openid(code):
@@ -556,7 +689,7 @@ class UserService:
             return dto
         open_id = await self.redis_util.Wechat.get_random_code_openid(code)
         if open_id:
-            user = await User.filter(wechat=open_id).first()
+            user = await db.model_first(select(User).where(User.wechat == open_id))
             if user:
                 token = TokenUtil.create_token(user.id, user.username)
                 dto.status = WechatScanResultEnum.HAS_BIND
@@ -568,11 +701,12 @@ class UserService:
             dto.status = WechatScanResultEnum.NOT_SCAN
         return dto
 
-    async def check_old_scan(self, code: str):
+    async def check_old_scan(self, code: str) -> WechatScanResultDTO:
         """
-        换绑微信验证旧微信
-        :param code:
-        :return:
+        换绑微信时验证旧微信。
+
+        :param code: 随机码。
+        :return: 扫码结果。
         """
         user_id = ContextVars.token_user_id.get()
         dto = WechatScanResultDTO()
@@ -581,7 +715,7 @@ class UserService:
             return dto
         open_id = await self.redis_util.Wechat.get_random_code_openid(code)
         if open_id:
-            user = await User.filter(id=user_id).first()
+            user = await db.model_first(select(User).where(User.id == user_id))
             if user and user.wechat == open_id:
                 # 已绑定,验证成功
                 dto.status = WechatScanResultEnum.HAS_BIND
@@ -592,11 +726,12 @@ class UserService:
             dto.status = WechatScanResultEnum.NOT_SCAN
         return dto
 
-    async def check_change_password_scan(self, code: str):
+    async def check_change_password_scan(self, code: str) -> WechatScanResultDTO:
         """
-        修改密码验证微信
-        :param code:
-        :return:
+        修改密码时验证微信扫码。
+
+        :param code: 随机码。
+        :return: 扫码结果。
         """
         user_id = ContextVars.token_user_id.get()
         dto = WechatScanResultDTO()
@@ -605,7 +740,7 @@ class UserService:
             return dto
         open_id = await self.redis_util.Wechat.get_random_code_openid(code)
         if open_id:
-            user = await User.filter(id=user_id).first()
+            user = await db.model_first(select(User).where(User.id == user_id))
             if user and user.wechat == open_id:
                 # 已绑定,验证成功
                 dto.status = WechatScanResultEnum.HAS_BIND
@@ -630,36 +765,40 @@ class UserService:
             return
         await self.redis_util.Wechat.save_random_code_openid(code, open_id, datetime.timedelta(minutes=10))
 
-    async def bind_wechat(self, wechat_bind_params_vo: WechatBindParamsVO):
+    async def bind_wechat(self, wechat_bind_params_vo: WechatBindParamsVO) -> None:
         """
-        换绑微信
-        :param wechat_bind_params_vo:
-        :return:
+        绑定或换绑微信。
+
+        :param wechat_bind_params_vo: 微信绑定参数。
+        :return: None。
         """
         user_id = ContextVars.token_user_id.get()
         open_id = await self.redis_util.Wechat.get_random_code_openid(wechat_bind_params_vo.code)
         if not open_id:
             raise MyException(ErrorCode.PARAM_ERROR)
-        user = await User.filter(id=user_id).first()
+        user = await db.model_first(select(User).where(User.id == user_id))
         if not user:
             raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
         if user.wechat:
             # 已经绑定过微信, 验证旧微信是否通过验证
             wechat_open_id = await self.redis_util.Wechat.get_random_code_openid(wechat_bind_params_vo.old_code)
-            if not wechat_open_id:
+            if wechat_open_id != user.wechat:
                 raise MyException(ErrorCode.PARAM_ERROR)
-        user.wechat = open_id
-        await user.save(update_fields=("wechat",))
-        await asyncio.gather(
-            self.redis_util.Wechat.delete_random_code_openid(wechat_bind_params_vo.old_code),
-            self.redis_util.Wechat.delete_random_code_openid(wechat_bind_params_vo.code),
-        )
+        try:
+            await db.execute(update(User).where(User.id == user_id).values(wechat=open_id))
+        except IntegrityError as e:
+            raise MyException(ErrorCode.ACCOUNT_HAS_EXIST) from e
+        clear_tasks = [self.redis_util.Wechat.delete_random_code_openid(wechat_bind_params_vo.code)]
+        if wechat_bind_params_vo.old_code:
+            clear_tasks.append(self.redis_util.Wechat.delete_random_code_openid(wechat_bind_params_vo.old_code))
+        await asyncio.gather(*clear_tasks)
 
-    async def get_wechat_user_info(self, code: str):
+    async def get_wechat_user_info(self, code: str) -> UserBaseInfoDTO:
         """
-        获取微信用户信息
-        :param code: 微信登录获取的code
-        :return:
+        获取微信用户信息。
+
+        :param code: 微信登录获取的 code。
+        :return: 用户基础信息。
         """
         await asyncio.sleep(1)
         open_id = await self.redis_util.Wechat.get_wechat_code_openid(code)
@@ -668,7 +807,7 @@ class UserService:
         if not open_id:
             raise MyException(ErrorCode.PARAM_ERROR)
         await self.redis_util.Wechat.save_wechat_code_openid(code, open_id)
-        user = await User.filter(wechat=open_id).first()
+        user = await db.model_first(select(User).where(User.wechat == open_id))
         if not user:
             raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
         dto = UserBaseInfoDTO.model_validate(user, from_attributes=True)

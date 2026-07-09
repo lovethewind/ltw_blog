@@ -3,22 +3,21 @@
 # @File    : comment_service.py
 import asyncio
 
-from tortoise import transactions
-from tortoise.functions import Count
+from sqlalchemy import Select, func, select, update
+from sqlalchemy.orm import aliased
 
 from apps.base.constant.common_constant import CommonConstant
 from apps.base.core.depend_inject import Autowired, Component
+from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.action import ObjectTypeEnum
 from apps.base.enum.comment import CommentStatusEnum
 from apps.base.enum.notice import NoticeTypeEnum
 from apps.base.enum.user import UserSettingsEnum
 from apps.base.models.comment import Comment
 from apps.base.utils.redis_util import RedisUtil
-from apps.web.constant.sql_constant import SqlConstant
 from apps.web.core.context_vars import ContextVars
 from apps.web.core.kafka.util import KafkaUtil
 from apps.web.dao.article_dao import ArticleDao
-from apps.web.dao.common_dao import CommonDao
 from apps.web.dao.picture_dao import PictureDao
 from apps.web.dao.user_dao import UserDao
 from apps.web.dto.chat_dto import WSMessageDTO
@@ -31,7 +30,6 @@ from apps.web.vo.comment_vo import CommentAddVO, CommentQueryVO
 
 @Component()
 class CommentService:
-    common_dao: CommonDao = Autowired()
     user_dao: UserDao = Autowired()
     picture_dao: PictureDao = Autowired()
     article_dao: ArticleDao = Autowired()
@@ -48,24 +46,35 @@ class CommentService:
         """
         user_id = ContextVars.token_user_id.get()
         # 第一层级评论
-        q = Comment.filter(
-            obj_id=comment_query_vo.obj_id, obj_type=comment_query_vo.obj_type, status=CommentStatusEnum.PASS
-        )
+        filters = [
+            Comment.obj_id == comment_query_vo.obj_id,
+            Comment.obj_type == comment_query_vo.obj_type,
+            Comment.status == CommentStatusEnum.PASS,
+        ]
+        first_level_filter = Comment.first_level_id == CommonConstant.TOP_LEVEL
+        offset, limit = db.page(current, size)
         total, first_level_comment_count, first_level_comments = await asyncio.gather(
-            q.count(),
-            q.filter(first_level_id=CommonConstant.TOP_LEVEL).count(),
-            q.filter(first_level_id=CommonConstant.TOP_LEVEL).page(current, size),
+            db.scalar(select(func.count()).select_from(Comment).where(*filters)),
+            db.scalar(select(func.count()).select_from(Comment).where(*filters, first_level_filter)),
+            db.model_all(select(Comment).where(*filters, first_level_filter).offset(offset).limit(limit)),
         )
         first_level_comments = CommentDTO.bulk_model_validate(first_level_comments)
-        comment_ids = []
-        for comment in first_level_comments:
-            comment_ids.append(comment.id)
+        comment_ids = [comment.id for comment in first_level_comments]
         children_comments = []
+        children_comments_count = []
         if comment_ids:
             # 查出每条第一级评论的二级评论，默认前3条
-            children_comments = await self.common_dao.execute_sql(
-                SqlConstant.FIRST_LEVEL_COMMENT_3_CHILDREN_COMMENT,
-                (comment_query_vo.obj_id, comment_query_vo.obj_type.value, comment_ids, CommentStatusEnum.PASS.value),
+            children_stmt = self._build_first_level_children_stmt(
+                comment_query_vo.obj_id, comment_query_vo.obj_type, comment_ids
+            )
+            children_count_stmt = (
+                select(Comment.first_level_id, func.count(Comment.id).label("comment_count"))
+                .where(Comment.first_level_id.in_(comment_ids), Comment.status == CommentStatusEnum.PASS)
+                .group_by(Comment.first_level_id)
+            )
+            children_comments, children_comments_count = await asyncio.gather(
+                db.model_all(children_stmt),
+                db.all(children_count_stmt),
             )
         children_comments_dict: dict[int, list[CommentDTO]] = {}
         for comment in children_comments:
@@ -73,14 +82,7 @@ class CommentService:
             if dto.first_level_id not in children_comments_dict:
                 children_comments_dict[dto.first_level_id] = []
             children_comments_dict[dto.first_level_id].append(dto)
-        # 查询所有一级评论子评论数量
-        children_comments_count = (
-            await Comment.filter(first_level_id__in=comment_ids, status=CommentStatusEnum.PASS)
-            .annotate(count=Count("id"))
-            .group_by("first_level_id")
-            .values("count", "first_level_id")
-        )
-        children_comments_count_dict = {item["first_level_id"]: item["count"] for item in children_comments_count}
+        children_comments_count_dict = {item.first_level_id: item.comment_count for item in children_comments_count}
         # 查询出所有评论所属用户及回复的评论所属用户，供页面显示回复@xxx
         for comment in first_level_comments:
             comment.has_like = await self.redis_util.User.has_like_comment(user_id, comment.id)
@@ -105,10 +107,11 @@ class CommentService:
         :return:
         """
         user_id = ContextVars.token_user_id.get()
-        q = Comment.filter(first_level_id=comment_id, status=CommentStatusEnum.PASS)
+        offset, limit = db.page(current, size)
+        filters = [Comment.first_level_id == comment_id, Comment.status == CommentStatusEnum.PASS]
         total, comments = await asyncio.gather(
-            q.count(),
-            q.page(current, size).all(),
+            db.scalar(select(func.count()).select_from(Comment).where(*filters)),
+            db.model_all(select(Comment).where(*filters).offset(offset).limit(limit)),
         )
         records = CommentDTO.bulk_model_validate(comments)
         for comment in records:
@@ -119,34 +122,46 @@ class CommentService:
                 comment.reply_user = await manager.get_user_info(comment.reply_user_id, UserBaseInfoDTO)
         return {"total": total, "records": records}
 
-    async def add(self, comment_add_vo: CommentAddVO):
+    async def add(self, comment_add_vo: CommentAddVO) -> CommentDTO:
         """
         添加评论
-        :param comment_add_vo:
-        :return:
+
+        :param comment_add_vo: 评论新增参数。
+        :return: 新增评论 DTO。
         """
         user_id = ContextVars.token_user_id.get()
         comment = Comment(**comment_add_vo.model_dump())
         comment.user_id = user_id
         comment.status = CommentStatusEnum.PASS
-        async with transactions.in_transaction():
-            await comment.save()
-            await self.redis_util.Article.incr_article_comment_count(comment_add_vo.obj_id)
+        comment = await db.create(comment)
+        await self.redis_util.Article.incr_article_comment_count(comment_add_vo.obj_id)
         ret = CommentDTO.model_validate(comment, from_attributes=True)
         asyncio.create_task(self._send_notice(user_id, comment_add_vo))
         return ret
 
-    async def delete(self, comment_id: int):
+    async def delete(self, comment_id: int) -> None:
         """
         根据评论id删除评论
-        :param comment_id:
-        :return:
+
+        :param comment_id: 评论 ID。
+        :return: None。
         """
         user_id = ContextVars.token_user_id.get()
-        await Comment.filter(id=comment_id, user_id=user_id).update(status=CommentStatusEnum.DELETE)
+        await db.execute(
+            update(Comment)
+            .where(Comment.id == comment_id, Comment.user_id == user_id)
+            .values(status=CommentStatusEnum.DELETE)
+        )
         await self.redis_util.Article.incr_article_comment_count(comment_id, -1)
 
-    async def _send_notice(self, user_id: int, comment_add_vo: CommentAddVO):
+    async def _send_notice(self, user_id: int, comment_add_vo: CommentAddVO) -> None:
+        """
+        发送评论通知。
+
+        :param user_id: 评论用户 ID。
+        :param comment_add_vo: 评论新增参数。
+        :return: None。
+        """
         setting_key = UserSettingsEnum.WHEN_COMMENT_MY_CONTENT
         notice_dto = NoticeSaveDTO()
         notice_dto.content = comment_add_vo.content
@@ -169,7 +184,7 @@ class CommentService:
             setting_key = UserSettingsEnum.WHEN_REPLY_MY_COMMENT
             notice_dto.title = "回复了你的评论"
             notice_dto.notice_type = NoticeTypeEnum.REPLY
-            parent_comment = await Comment.filter(id=comment_add_vo.parent_id).first()
+            parent_comment = await db.model_first(select(Comment).where(Comment.id == comment_add_vo.parent_id))
             notice_dto.detail.comment_id = parent_comment.id
             notice_dto.detail.comment_content = parent_comment.content
             notice_dto.user_id = parent_comment.user_id
@@ -181,3 +196,32 @@ class CommentService:
         await self.kafka_util.send_notice(notice_dto)
         notice_dto.detail.from_user = await manager.get_user_info(user_id, UserBaseInfoDTO)
         await manager.send_message(WSMessageDTO[NoticeSaveDTO](message=notice_dto))
+
+    def _build_first_level_children_stmt(
+        self, obj_id: int, obj_type: ObjectTypeEnum, comment_ids: list[int]
+    ) -> Select[tuple[Comment]]:
+        """
+        构建一级评论下前三条子评论查询。
+
+        :param obj_id: 对象 ID。
+        :param obj_type: 对象类型。
+        :param comment_ids: 一级评论 ID 列表。
+        :return: SQLAlchemy 查询语句。
+        """
+        ranked_comments = (
+            select(
+                Comment,
+                func.row_number()
+                .over(partition_by=Comment.first_level_id, order_by=Comment.id.desc())
+                .label("row_num"),
+            )
+            .where(
+                Comment.obj_id == obj_id,
+                Comment.obj_type == obj_type,
+                Comment.first_level_id.in_(comment_ids),
+                Comment.status == CommentStatusEnum.PASS,
+            )
+            .subquery()
+        )
+        comment_alias = aliased(Comment, ranked_comments)
+        return select(comment_alias).where(ranked_comments.c.row_num <= 3)

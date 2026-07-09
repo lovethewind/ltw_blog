@@ -1,9 +1,11 @@
+import asyncio
 import copy
+import inspect
 import logging
 import os
 import threading
 from pathlib import Path
-from typing import Any, Optional, Type, get_type_hints
+from typing import Any, Awaitable, Optional, Type, get_type_hints
 
 import yaml
 from dependency_injector import containers, providers
@@ -143,10 +145,56 @@ class ContainerUtil[T]:
                     logger.info(f"组件[{clazz}]更新")
                     provider_bean = container.providers.get(cls.get_name_from_class(clazz))
                     if isinstance(provider_bean, BaseSingleton):
+                        cls._close_singleton_instance(provider_bean)
                         provider_bean.reset()
             except Exception as e:
                 container.config = old_config
                 logger.exception(f"组件刷新失败，已恢复原配置 {e}")
+
+    @classmethod
+    def _close_singleton_instance(cls, provider_bean: BaseSingleton) -> None:
+        """
+        关闭待刷新的旧单例实例。
+
+        :param provider_bean: 单例 Provider。
+        :return: None。
+        """
+        instance = provider_bean()
+        close_func = getattr(instance, "close", None)
+        if not callable(close_func):
+            return
+        close_result = close_func()
+        if inspect.isawaitable(close_result):
+            cls._schedule_close(close_result)
+
+    @classmethod
+    def _schedule_close(cls, close_result: Awaitable[Any]) -> None:
+        """
+        执行或调度异步关闭任务。
+
+        :param close_result: 异步关闭对象。
+        :return: None。
+        """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(close_result)
+            return
+        task = loop.create_task(close_result)
+        task.add_done_callback(cls._log_close_task_exception)
+
+    @staticmethod
+    def _log_close_task_exception(task: asyncio.Task) -> None:
+        """
+        记录异步关闭任务异常。
+
+        :param task: 异步关闭任务。
+        :return: None。
+        """
+        try:
+            task.result()
+        except Exception as e:
+            logger.exception(f"组件异步关闭失败: {e}")
 
     @classmethod
     def _resolve_rv_dependent(cls, clazz: Type[T], update_component_set: set[Type[T]]) -> None:

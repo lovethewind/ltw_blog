@@ -1,9 +1,12 @@
 from redis.asyncio import Redis
+from sqlalchemy import func, select
 
 from apps.base.constant.redis_constant import RedisConstant
 from apps.base.core.depend_inject import logger
+from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.action import ActionTypeEnum, ObjectTypeEnum
 from apps.base.models.action import Action
+from apps.base.models.user import User
 
 
 class UserMethod:
@@ -19,8 +22,11 @@ class UserMethod:
         key = f"{RedisConstant.USER_UID_GENERATOR_KEY}"
         ret = await self._redis.get(key)
         if not ret:
-            logger.info(f"init user uid default value to 10000.")
-            await self._redis.set(key, 10000)
+            stmt = select(func.max(User.uid))
+            value = await db.scalar(stmt) or 0
+            value = max(value, 10000)
+            logger.info(f"init uid cache:{value}")
+            await self._redis.set(key, value)
         self._inited = True
 
     async def gen_uid(self):
@@ -107,19 +113,24 @@ class UserMethod:
         key = f"{RedisConstant.USER_UNBLOCK_KEY}:{key}"
         await self._redis.delete(key)
 
-    async def get_user_collect_articles(self, user_id: int):
+    async def get_user_collect_articles(self, user_id: int) -> list[int]:
         """
         获取用户收藏的文章集合
-        :param user_id: 用户id
-        :return: 文章id集合
+
+        :param user_id: 用户id。
+        :return: 文章id集合。
         """
         key = f"{RedisConstant.USER_COLLECT_ARTICLE_ZSET_KEY}:{user_id}"
         if not await self._redis.exists(key):
-            collects = await Action.filter(
-                user_id=user_id, obj_type=ObjectTypeEnum.ARTICLE, action_type=ActionTypeEnum.COLLECT, status=True
-            ).values("obj_id", "create_time")
-            collects_map = {collect["obj_id"]: collect["create_time"].timestamp() for collect in collects}
-            if collects:
+            stmt = select(Action.obj_id, Action.create_time).where(
+                Action.user_id == user_id,
+                Action.obj_type == ObjectTypeEnum.ARTICLE,
+                Action.action_type == ActionTypeEnum.COLLECT,
+                Action.status.is_(True),
+            )
+            collects = await db.all(stmt)
+            collects_map = {collect.obj_id: collect.create_time.timestamp() for collect in collects}
+            if collects_map:
                 await self._redis.zadd(key, collects_map)
         ret = await self._redis.zrange(key, 0, -1)
         ret = [int(article_id) for article_id in ret]
@@ -136,18 +147,23 @@ class UserMethod:
         ret = await self._redis.zscore(key, article_id)
         return ret is not None
 
-    async def get_user_like_articles(self, user_id: int):
+    async def get_user_like_articles(self, user_id: int) -> list[int]:
         """
         获取用户点赞的文章集合
-        :param user_id: 用户id
-        :return: 文章id集合
+
+        :param user_id: 用户id。
+        :return: 文章id集合。
         """
         key = f"{RedisConstant.USER_LIKE_ARTICLE_ZSET_KEY}:{user_id}"
         if not await self._redis.exists(key):
-            likes = await Action.filter(
-                user_id=user_id, obj_type=ObjectTypeEnum.ARTICLE, action_type=ActionTypeEnum.LIKE, status=True
-            ).values("obj_id", "create_time")
-            likes_map = {like["obj_id"]: like["create_time"].timestamp() for like in likes}
+            stmt = select(Action.obj_id, Action.create_time).where(
+                Action.user_id == user_id,
+                Action.obj_type == ObjectTypeEnum.ARTICLE,
+                Action.action_type == ActionTypeEnum.LIKE,
+                Action.status.is_(True),
+            )
+            likes = await db.all(stmt)
+            likes_map = {like.obj_id: like.create_time.timestamp() for like in likes}
             if likes_map:
                 await self._redis.zadd(key, likes_map)
         ret = await self._redis.zrange(key, 0, -1)
@@ -165,18 +181,23 @@ class UserMethod:
         ret = await self._redis.zscore(key, article_id)
         return ret is not None
 
-    async def get_user_like_comments(self, user_id: int):
+    async def get_user_like_comments(self, user_id: int) -> list[int]:
         """
         获取用户点赞的评论集合
-        :param user_id: 用户id
-        :return: 文章id集合
+
+        :param user_id: 用户id。
+        :return: 评论id集合。
         """
         key = f"{RedisConstant.USER_LIKE_COMMENT_ZSET_KEY}:{user_id}"
         if not await self._redis.exists(key):
-            likes = await Action.filter(
-                user_id=user_id, obj_type=ObjectTypeEnum.COMMENT, action_type=ActionTypeEnum.LIKE, status=True
-            ).values("obj_id", "create_time")
-            likes_map = {like["obj_id"]: like["create_time"].timestamp() for like in likes}
+            stmt = select(Action.obj_id, Action.create_time).where(
+                Action.user_id == user_id,
+                Action.obj_type == ObjectTypeEnum.COMMENT,
+                Action.action_type == ActionTypeEnum.LIKE,
+                Action.status.is_(True),
+            )
+            likes = await db.all(stmt)
+            likes_map = {like.obj_id: like.create_time.timestamp() for like in likes}
             if likes_map:
                 await self._redis.zadd(key, likes_map)
         ret = await self._redis.zrange(key, 0, -1)

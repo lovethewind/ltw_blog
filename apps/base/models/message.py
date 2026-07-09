@@ -1,22 +1,28 @@
-from tortoise import fields
+from sqlalchemy import BigInteger, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
 
 from apps.base.constant.common_constant import CommonConstant
 from apps.base.models.base import BaseModel
 
 
 class Message(BaseModel):
-    user_id = fields.BigIntField(description="用户id", default=CommonConstant.TOP_LEVEL)
-    avatar = fields.CharField(max_length=300, null=True, description="头像")
-    nickname = fields.CharField(max_length=30, null=True, description="昵称")
-    email = fields.CharField(max_length=100, null=True, description="联系人邮箱")
-    address = fields.CharField(max_length=100, description="地址")
-    content = fields.TextField(description="留言内容")
-    parent_id = fields.BigIntField(description="父id", default=CommonConstant.TOP_LEVEL)
-    reply_user_id = fields.BigIntField(
-        description="回复的评论所属用户id, 便于查询组装结果", default=CommonConstant.TOP_LEVEL
-    )
-    first_level_id = fields.BigIntField(description="第一层级评论id, 方便查询", default=CommonConstant.TOP_LEVEL)
+    """
+    留言模型。
+    """
 
-    class Meta:
-        table = "t_message"
-        table_description = "留言表"
+    __tablename__ = "t_message"
+    __table_args__ = {"comment": "留言表"}
+
+    user_id: Mapped[int] = mapped_column(BigInteger, default=CommonConstant.TOP_LEVEL, comment="用户id")
+    avatar: Mapped[str | None] = mapped_column(String(300), nullable=True, comment="头像")
+    nickname: Mapped[str | None] = mapped_column(String(30), nullable=True, comment="昵称")
+    email: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="联系人邮箱")
+    address: Mapped[str] = mapped_column(String(100), comment="地址")
+    content: Mapped[str] = mapped_column(Text, comment="留言内容")
+    parent_id: Mapped[int] = mapped_column(BigInteger, default=CommonConstant.TOP_LEVEL, comment="父id")
+    reply_user_id: Mapped[int] = mapped_column(
+        BigInteger, default=CommonConstant.TOP_LEVEL, comment="回复的评论所属用户id, 便于查询组装结果"
+    )
+    first_level_id: Mapped[int] = mapped_column(
+        BigInteger, default=CommonConstant.TOP_LEVEL, comment="第一层级评论id, 方便查询"
+    )

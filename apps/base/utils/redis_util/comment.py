@@ -1,8 +1,10 @@
 import time
 
 from redis.asyncio import Redis
+from sqlalchemy import func, select
 
 from apps.base.constant.redis_constant import RedisConstant
+from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.action import ActionTypeEnum, ObjectTypeEnum
 from apps.base.models.action import Action
 
@@ -18,15 +20,21 @@ class CommentMethod:
     async def get_comment_like_count(self, comment_id: int) -> int:
         """
         评论点赞数
-        :param comment_id: 评论id
-        :return:
+
+        :param comment_id: 评论id。
+        :return: 评论点赞数。
         """
         key = str(comment_id)
         ret = await self._redis.hget(RedisConstant.COMMENT_LIKE_COUNT_MAP_KEY, key)
         if ret is None:
-            ret = await Action.filter(
-                obj_id=comment_id, obj_type=ObjectTypeEnum.COMMENT, action_type=ActionTypeEnum.LIKE, status=True
-            ).count()
+            ret = await db.scalar(
+                select(func.count(Action.id)).where(
+                    Action.obj_id == comment_id,
+                    Action.obj_type == ObjectTypeEnum.COMMENT,
+                    Action.action_type == ActionTypeEnum.LIKE,
+                    Action.status.is_(True),
+                )
+            )
             await self._redis.hset(RedisConstant.COMMENT_LIKE_COUNT_MAP_KEY, key, str(ret))
         return int(ret)
 

@@ -1,25 +1,27 @@
-from tortoise import fields
+from sqlalchemy import BigInteger, Boolean, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column
 
 from apps.base.enum.job import JobStatusEnum, MisfirePolicyEnum
 from apps.base.models.base import BaseModel
 
 
 class Job(BaseModel):
-    name = fields.CharField(max_length=64, description="任务名称")
-    group = fields.CharField(max_length=64, default="DEFAULT", description="任务组名")
-    invoke_target = fields.CharField(max_length=500, description="调用目标字符串")
-    cron_expression = fields.CharField(max_length=255, description="cron执行表达式")
-    misfire_policy = fields.IntEnumField(
-        MisfirePolicyEnum,
-        default=MisfirePolicyEnum.ABANDON,
-        description="计划执行策略（1:立即执行 2:执行一次 3:放弃执行）",
-    )
-    concurrent = fields.BooleanField(default=False, description="是否并发执行")
-    status = fields.IntEnumField(JobStatusEnum, default=JobStatusEnum.PAUSE, description="状态(1:正常 2:暂停)")
-    create_user_id = fields.BigIntField(description="创建者id")
-    update_user_id = fields.BigIntField(null=True, description="更新者id")
-    description = fields.CharField(max_length=1000, default="", description="说明")
+    """
+    定时任务模型。
+    """
 
-    class Meta:
-        table = "t_job"
-        table_description = "定时任务表"
+    __tablename__ = "t_job"
+    __table_args__ = {"comment": "定时任务表"}
+
+    name: Mapped[str] = mapped_column(String(64), comment="任务名称")
+    group: Mapped[str] = mapped_column(String(64), default="DEFAULT", comment="任务组名")
+    invoke_target: Mapped[str] = mapped_column(String(500), comment="调用目标字符串")
+    cron_expression: Mapped[str] = mapped_column(String(255), comment="cron执行表达式")
+    misfire_policy: Mapped[int] = mapped_column(
+        Integer, default=MisfirePolicyEnum.ABANDON.value, comment="计划执行策略（1:立即执行 2:执行一次 3:放弃执行）"
+    )
+    concurrent: Mapped[bool] = mapped_column(Boolean, default=False, comment="是否并发执行")
+    status: Mapped[int] = mapped_column(Integer, default=JobStatusEnum.PAUSE.value, comment="状态(1:正常 2:暂停)")
+    create_user_id: Mapped[int] = mapped_column(BigInteger, comment="创建者id")
+    update_user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, comment="更新者id")
+    description: Mapped[str] = mapped_column(String(1000), default="", comment="说明")

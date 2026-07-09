@@ -1,21 +1,19 @@
-# @Time    : 2024/9/12 14:40
-# @Author  : frank
-# @File    : action_service.py
 import asyncio
 
-from tortoise.transactions import in_transaction
+from sqlalchemy import func, select
 
 from apps.base.core.depend_inject import Autowired, Component
+from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.action import ActionTypeEnum, ObjectTypeEnum
 from apps.base.enum.notice import NoticeTypeEnum
 from apps.base.enum.user import UserSettingsEnum
 from apps.base.models.action import Action
+from apps.base.models.comment import Comment
 from apps.base.utils.redis_util import RedisUtil
 from apps.web.core.context_vars import ContextVars
 from apps.web.core.kafka.util import KafkaUtil
 from apps.web.dao.article_dao import ArticleDao
 from apps.web.dao.chat_dao import ChatDao
-from apps.web.dao.comment_dao import CommentDao
 from apps.web.dao.picture_dao import PictureDao
 from apps.web.dao.user_dao import UserDao
 from apps.web.dto.action_dto import BlckListDTO, UserFollowInfoDTO
@@ -30,7 +28,6 @@ from apps.web.vo.action_vo import ActionAddVO, ActionQueryVO, ActionTypeDetailQu
 class ActionService:
     user_dao: UserDao = Autowired()
     article_dao: ArticleDao = Autowired()
-    comment_dao: CommentDao = Autowired()
     picture_dao: PictureDao = Autowired()
     chat_dao: ChatDao = Autowired()
     redis_util: RedisUtil = Autowired()
@@ -58,8 +55,11 @@ class ActionService:
             setting_key = UserSettingsEnum.ALLOW_VIEW_MY_FOLLOW
         if setting_key:
             user_id = action_query_vo.user_id or action_query_vo.obj_id
+            if not user_id:
+                return {"total": 0, "records": []}
             user_setting_value = await self.user_dao.get_user_setting_value(user_id, setting_key)
-            if user_setting_value is False:
+            user_setting_value = bool(user_setting_value)
+            if not user_setting_value:
                 return {"total": 0, "records": []}
         page = await self._get_action_type_data(current, size, action_query_vo, action_type_detail_query_vo)
         return page
@@ -87,19 +87,22 @@ class ActionService:
         page = await self._get_action_type_data(current, size, action_query_vo, action_type_detail_query_vo)
         return page
 
-    async def add_or_update(self, action_add_vo: ActionAddVO):
+    async def add_or_update(self, action_add_vo: ActionAddVO) -> bool:
         """
         添加行为
-        :param action_add_vo:
-        :return:
+
+        :param action_add_vo: 行为新增参数。
+        :return: 切换后的行为状态。
         """
         user_id = ContextVars.token_user_id.get()
-        action = await Action.filter(
-            obj_id=action_add_vo.obj_id,
-            obj_type=action_add_vo.obj_type,
-            action_type=action_add_vo.action_type,
-            user_id=user_id,
-        ).first()
+        action = await db.model_first(
+            select(Action).where(
+                Action.obj_id == action_add_vo.obj_id,
+                Action.obj_type == action_add_vo.obj_type,
+                Action.action_type == action_add_vo.action_type,
+                Action.user_id == user_id,
+            )
+        )
         if not action:
             action = Action(
                 obj_id=action_add_vo.obj_id,
@@ -110,16 +113,23 @@ class ActionService:
             )
             asyncio.create_task(self._send_notice(user_id, action))
         action.status = not action.status
-        async with in_transaction():
+        async with db.atomic() as session:
             if action_add_vo.obj_type == ObjectTypeEnum.USER and action.action_type == ActionTypeEnum.BLACKLIST:
                 if user_id == action_add_vo.obj_id:
                     return not action.status
                 await self.chat_dao.delete_contact(user_id, action_add_vo.obj_id)
-            await action.save()
+            session.add(action)
             await self._action_type_cache(action)
         return action.status
 
-    async def _send_notice(self, user_id: int, action: Action):
+    async def _send_notice(self, user_id: int, action: Action) -> None:
+        """
+        发送行为通知。
+
+        :param user_id: 行为发起用户 ID。
+        :param action: 行为记录。
+        :return: None。
+        """
         setting_key = None
         notice_dto = NoticeSaveDTO()
         notice_dto.detail.from_user_id = user_id
@@ -134,7 +144,7 @@ class ActionService:
                 notice_dto.user_id = article.user_id
                 notice_dto.title = "点赞了你的文章"
             elif action.obj_type == ObjectTypeEnum.COMMENT:
-                comment = await self.comment_dao.get_comment(action.obj_id)
+                comment = await self._get_comment(action.obj_id)
                 # 获取点赞的评论主体
                 if comment.obj_type == ObjectTypeEnum.ARTICLE:
                     article = await self.article_dao.get_article(comment.obj_id)
@@ -178,6 +188,15 @@ class ActionService:
         notice_dto.detail.from_user = await manager.get_user_info(user_id, UserBaseInfoDTO)
         await manager.send_message(WSMessageDTO[NoticeSaveDTO](message=notice_dto))
 
+    async def _get_comment(self, comment_id: int) -> Comment | None:
+        """
+        根据评论 ID 获取评论。
+
+        :param comment_id: 评论 ID。
+        :return: 评论对象；不存在时返回 None。
+        """
+        return await db.model_first(select(Comment).where(Comment.id == comment_id))
+
     async def _get_action_type_data(
         self,
         current: int,
@@ -196,11 +215,15 @@ class ActionService:
         login_user_id = ContextVars.token_user_id.get()
         total = 0
         records = []
-        q = Action.filter(**action_query_vo.model_dump(exclude_none=True), status=True)
+        filters = [
+            getattr(Action, key) == value for key, value in action_query_vo.model_dump(exclude_none=True).items()
+        ]
+        stmt = select(Action).where(*filters, Action.status.is_(True))
         if action_query_vo.action_type == ActionTypeEnum.COLLECT:
+            offset, limit = db.page(current, size)
             total, actions = await asyncio.gather(
-                q.count(),
-                q.page(current, size).all(),
+                db.scalar(select(func.count()).select_from(stmt.subquery())),
+                db.model_all(stmt.offset(offset).limit(limit)),
             )
             # todo 支持查询
             article_ids = [action.obj_id for action in actions]
@@ -209,9 +232,10 @@ class ActionService:
             for dto in records:
                 dto.collect_time = action_time_dict.get(dto.id)  # 获取收藏时间
         elif action_query_vo.action_type == ActionTypeEnum.FOLLOW:
+            offset, limit = db.page(current, size)
             total, actions = await asyncio.gather(
-                q.count(),
-                q.page(current, size).all(),
+                db.scalar(select(func.count()).select_from(stmt.subquery())),
+                db.model_all(stmt.offset(offset).limit(limit)),
             )
             # 查询关注或者粉丝列表
             user_ids = [action.obj_id if action_query_vo.user_id else action.user_id for action in actions]
@@ -223,10 +247,11 @@ class ActionService:
                 ret.append(dto)
             records = ret
         elif action_query_vo.action_type == ActionTypeEnum.BLACKLIST:
-            q = q.filter(user_id=login_user_id)
+            stmt = stmt.where(Action.user_id == login_user_id)
+            offset, limit = db.page(current, size)
             total, actions = await asyncio.gather(
-                q.count(),
-                q.page(current, size).all(),
+                db.scalar(select(func.count()).select_from(stmt.subquery())),
+                db.model_all(stmt.offset(offset).limit(limit)),
             )
             ret = []
             for record in actions:

@@ -1,4 +1,7 @@
+from sqlalchemy import select
+
 from apps.base.core.depend_inject import Component
+from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.user import UserSettingsEnum
 from apps.base.models.user import User, UserSettings
 from apps.web.dto.user_dto import UserCommonInfoDTO
@@ -8,43 +11,54 @@ from apps.web.dto.user_dto import UserCommonInfoDTO
 class UserDao:
     common_user_settings = [UserSettingsEnum.ALLOW_VIEW_MY_FOLLOW, UserSettingsEnum.ALLOW_VIEW_MY_COLLECT]
 
-    async def get_user_info(self, user_id: int):
+    async def get_user_info(self, user_id: int) -> UserCommonInfoDTO:
         """
-        获取用户基本信息
-        :param user_id:
-        :return:
+        获取用户基本信息。
+
+        :param user_id: 用户 ID。
+        :return: 用户公开信息。
         """
-        user = await User.filter(id=user_id).first()
+        user = await db.model_first(select(User).where(User.id == user_id))
         return UserCommonInfoDTO.model_validate(user, from_attributes=True)
 
     async def get_user_common_settings(self, user_id: int) -> dict[UserSettingsEnum, str | bool]:
         """
-        获取用户的基本配置
-        :param user_id:
-        :return:
+        获取用户的公开配置。
+
+        :param user_id: 用户 ID。
+        :return: 用户公开配置。
         """
-        ret = await UserSettings.filter(user_id=user_id, setting_key__in=self.common_user_settings)
+        ret = await db.model_all(
+            select(UserSettings).where(
+                UserSettings.user_id == user_id,
+                UserSettings.setting_key.in_(self.common_user_settings),
+            )
+        )
         return {item.setting_key: self._covert_bool_value(item.setting_value) for item in ret}
 
     async def get_user_settings(self, user_id: int) -> dict[UserSettingsEnum, str | bool]:
         """
-        获取用户的所有配置
-        :param user_id:
-        :return:
+        获取用户的所有配置。
+
+        :param user_id: 用户 ID。
+        :return: 用户配置。
         """
-        ret = await UserSettings.filter(user_id=user_id)
+        ret = await db.model_all(select(UserSettings).where(UserSettings.user_id == user_id))
         return {item.setting_key: self._covert_bool_value(item.setting_value) for item in ret}
 
     async def get_user_setting_value(self, user_id: int, key: UserSettingsEnum) -> str | bool | None:
         """
         获取用户的配置值
-        :param user_id:
-        :param key:
-        :return:
+
+        :param user_id: 用户 ID。
+        :param key: 配置键。
+        :return: 配置值；不存在时返回 None。
         """
-        ret = await UserSettings.filter(user_id=user_id, setting_key=key).first()
+        ret = await db.model_first(
+            select(UserSettings).where(UserSettings.user_id == user_id, UserSettings.setting_key == key)
+        )
         if not ret:
-            return
+            return None
         return self._covert_bool_value(ret.setting_value)
 
     def _covert_bool_value(self, value: str):

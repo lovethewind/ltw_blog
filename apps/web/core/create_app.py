@@ -15,7 +15,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from apps.base.core.depend_inject import GetBean, GetValue
-from apps.base.core.tortoise import register_app_tortoise
+from apps.base.core.sqlalchemy.session import close_sqlalchemy_engine, init_sqlalchemy_engine
 from apps.base.enum.error_code import ErrorCode
 from apps.base.exception.my_exception import MyException
 from apps.base.utils.response_util import ResponseUtil
@@ -45,7 +45,6 @@ class CreateApp:
         self.router_scan = router_scan or []
 
     def init(self):
-        self._db_init()
         self._register_router()
         self._add_exception_handler()
         self._add_middleware()
@@ -59,28 +58,17 @@ class CreateApp:
         :param app: FastAPI 应用实例
         :return: 生命周期异步生成器
         """
-        kafka_util = None
         try:
+            init_sqlalchemy_engine()
             await manager.start()
-            kafka_util = GetBean(KafkaUtil)
-            await kafka_util.start_consumer()
+            await GetBean(KafkaUtil).start_consumer()
             yield
         finally:
             try:
-                if kafka_util:
-                    await kafka_util.stop()
-            finally:
+                await GetBean(KafkaUtil).stop()
                 await manager.stop()
-
-    def _db_init(
-        self,
-        tortoise_config: dict = GetValue("app.db.tortoise"),
-        testing_config: dict = GetValue("app.db.test-tortoise"),
-    ):
-        """
-        初始化数据库连接
-        """
-        register_app_tortoise(self.app, tortoise_config, testing_config, self.testing)
+            finally:
+                await close_sqlalchemy_engine()
 
     def _register_router(self, router_name: str = "router", prefix: str = GetValue("app.context-path")):
         """

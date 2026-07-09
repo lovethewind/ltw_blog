@@ -9,10 +9,8 @@ from apps.base.utils.snowflake import SnowflakeIDGenerator
 
 class BaseModel(DeclarativeBase):
     """
-    项目 SQLAlchemy 模型基类。
+    SQLAlchemy 声明式模型基类。
     """
-
-    __abstract__ = True
 
     id: Mapped[int] = mapped_column(
         BigInteger, default=SnowflakeIDGenerator.generate_id, primary_key=True, comment="主键"
@@ -31,11 +29,3 @@ class BaseModel(DeclarativeBase):
         :return: SQLAlchemy 查询语句。
         """
         return select(*(columns or (cls,)))
-
-    def model_dump(self) -> dict[str, Any]:
-        """
-        导出模型列字段值。
-
-        :return: 模型列字段到字段值的映射。
-        """
-        return {column.name: getattr(self, column.name) for column in self.__table__.columns}

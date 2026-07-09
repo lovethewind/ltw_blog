@@ -3,6 +3,8 @@
 # @File    : category_dto.py
 from typing import Optional
 
+from pydantic import Field
+
 from apps.web.dto.base_dto import BaseDTO
 
 
@@ -21,4 +23,4 @@ class TagDTO(BaseDTO):
     parent_id: int
     level: int
     index: int
-    children: Optional[list["TagDTO"]] = []
+    children: list["TagDTO"] = Field(default_factory=list)

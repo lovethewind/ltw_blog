@@ -1,4 +1,5 @@
-from tortoise import fields
+from sqlalchemy import BigInteger, Boolean, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column
 
 from apps.base.constant.common_constant import CommonConstant
 from apps.base.enum.category import TagLevelEnum
@@ -6,24 +7,30 @@ from apps.base.models.base import BaseModel
 
 
 class Category(BaseModel):
-    name = fields.CharField(max_length=20, description="分类名")
-    description = fields.CharField(max_length=1000, null=True, description="描述")
-    index = fields.IntField(default=100000, description="排序(越小越在前)")
-    is_active = fields.BooleanField(default=True, description="是否激活")
+    """
+    分类模型。
+    """
 
-    class Meta:
-        table = "t_category"
-        table_description = "分类表"
+    __tablename__ = "t_category"
+    __table_args__ = {"comment": "分类表"}
+
+    name: Mapped[str] = mapped_column(String(20), comment="分类名")
+    description: Mapped[str | None] = mapped_column(String(1000), nullable=True, comment="描述")
+    index: Mapped[int] = mapped_column(Integer, default=100000, comment="排序(越小越在前)")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, comment="是否激活")
 
 
 class Tag(BaseModel):
-    name = fields.CharField(max_length=20, description="标签名")
-    description = fields.CharField(max_length=1000, null=True, description="描述")
-    parent_id = fields.BigIntField(default=CommonConstant.TOP_LEVEL, description="所属父级")
-    level = fields.IntEnumField(TagLevelEnum, default=TagLevelEnum.CATEGORY, description="层级(1:分类层 2:展示层)")
-    index = fields.IntField(default=100000, description="排序(越小越在前)")
-    is_active = fields.BooleanField(default=True, description="是否激活")
+    """
+    标签模型。
+    """
 
-    class Meta:
-        table = "t_tag"
-        table_description = "标签表"
+    __tablename__ = "t_tag"
+    __table_args__ = {"comment": "标签表"}
+
+    name: Mapped[str] = mapped_column(String(20), comment="标签名")
+    description: Mapped[str | None] = mapped_column(String(1000), nullable=True, comment="描述")
+    parent_id: Mapped[int] = mapped_column(BigInteger, default=CommonConstant.TOP_LEVEL, comment="所属父级")
+    level: Mapped[int] = mapped_column(Integer, default=TagLevelEnum.CATEGORY.value, comment="层级(1:分类层 2:展示层)")
+    index: Mapped[int] = mapped_column(Integer, default=100000, comment="排序(越小越在前)")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, comment="是否激活")

@@ -1,14 +1,13 @@
-# @Time    : 2024/9/14 16:50
-# @Author  : frank
-# @File    : common_service.py
 import json
 from typing import Any
 
 import aiohttp
+from sqlalchemy import func, select
 
 from apps.base.constant.email_constant import EmailConstant
 from apps.base.constant.sms_constant import SmsConstant
 from apps.base.core.depend_inject import Autowired, Component, RefreshScope, Value, logger
+from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.common import FeedbackTypeEnum, VerifyCodeTypeEnum
 from apps.base.enum.error_code import ErrorCode
 from apps.base.exception.my_exception import MyException
@@ -189,7 +188,7 @@ class CommonService:
         else:
             raise MyException(ErrorCode.PARAM_ERROR)
         user_id = ContextVars.token_user_id.get()
-        user = await User.filter(id=user_id).first()
+        user = await db.model_first(select(User).where(User.id == user_id))
         code = RandomUtil.random_numbers(6)
         await self.kafka_util.send_email(user.email, title, content.format(code))
         await self.redis_util.VerifyCode.save_verify_code(user.email, code, email_code_vo.code_type)
@@ -201,7 +200,7 @@ class CommonService:
         :return:
         """
         user_id = ContextVars.token_user_id.get()
-        user = await User.filter(id=user_id).first()
+        user = await db.model_first(select(User).where(User.id == user_id))
         return await self.redis_util.VerifyCode.check_verify_code(
             user.email, email_code_vo.code, email_code_vo.code_type
         )
@@ -238,7 +237,7 @@ class CommonService:
         else:
             raise MyException(ErrorCode.PARAM_ERROR)
         user_id = ContextVars.token_user_id.get()
-        user = await User.filter(id=user_id).first()
+        user = await db.model_first(select(User).where(User.id == user_id))
         code = RandomUtil.random_numbers(6)
         await self.kafka_util.send_sms(user.mobile, sms_type, code)
         await self.redis_util.VerifyCode.save_verify_code(user.mobile, code, mobile_code_vo.code_type)
@@ -268,7 +267,7 @@ class CommonService:
         if mobile_code_vo.code_type not in (VerifyCodeTypeEnum.CHANGE_BIND, VerifyCodeTypeEnum.CHANGE_PASSWORD):
             raise MyException(ErrorCode.PARAM_ERROR)
         user_id = ContextVars.token_user_id.get()
-        user = await User.filter(id=user_id).first()
+        user = await db.model_first(select(User).where(User.id == user_id))
         return await self.redis_util.VerifyCode.check_verify_code(
             user.mobile, mobile_code_vo.code, mobile_code_vo.code_type
         )
@@ -282,7 +281,8 @@ class CommonService:
         query_dict = validate_account_exist_vo.model_dump(exclude_none=True)
         if not query_dict:
             raise MyException(ErrorCode.PARAM_ERROR)
-        return await User.filter(**query_dict).exists()
+        total = await db.scalar(select(func.count()).select_from(User).filter_by(**query_dict))
+        return total > 0
 
     async def add_feedback(self, feedback_vo: FeedbackVO):
         """
