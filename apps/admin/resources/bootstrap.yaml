@@ -1,0 +1,13 @@
+app:
+  active: dev
+  context-path: /admin
+  name: ltw-admin-py
+  server:
+    host: 0.0.0.0
+    port: 8002
+
+nacos:
+  server-addr: nacos:8848
+  namespace: 852dbf3f-4f74-4835-96bf-48e10e5dcc31
+  group: dev
+  file-extension: yaml

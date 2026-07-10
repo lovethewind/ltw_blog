@@ -1,11 +1,11 @@
 {
   "project": "ltw-blog",
   "version": "0.0.1",
-  "generatedAt": "2026-07-10T22:08:59+08:00",
+  "generatedAt": "2026-07-10T22:10:35+08:00",
   "branch": "master",
-  "sourceCommit": "640ff4cb96b789ebebf5e72b673ec1a6a8dcc686",
-  "sourceCommitShort": "640ff4c",
-  "sourceCommitTime": "2026-07-10T22:00:15+08:00",
+  "sourceCommit": "e233ecbac1cb6785ee948b1c5aa1753f81b53c2e",
+  "sourceCommitShort": "e233ecb",
+  "sourceCommitTime": "2026-07-10T22:09:01+08:00",
   "sourceCommitSubject": "feat:定时从redis同步数量数据到db",
   "note": "pre-commit 生成；sourceCommit 为提交前 HEAD，不能表示本次提交自己的 hash。"
 }
