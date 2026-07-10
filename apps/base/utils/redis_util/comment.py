@@ -7,6 +7,7 @@ from apps.base.constant.redis_constant import RedisConstant
 from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.action import ActionTypeEnum, ObjectTypeEnum
 from apps.base.models.action import Action
+from apps.base.utils.redis_util.action_count import mark_action_count_dirty
 
 
 class CommentMethod:
@@ -59,7 +60,21 @@ class CommentMethod:
         if score is None:
             await self._redis.zadd(key, {item_key: time.time()})
             await self._redis.hincrby(RedisConstant.COMMENT_LIKE_COUNT_MAP_KEY, item_key, 1)
+            await mark_action_count_dirty(
+                self._redis,
+                RedisConstant.COMMENT_LIKE_COUNT_MAP_KEY,
+                ObjectTypeEnum.COMMENT,
+                ActionTypeEnum.LIKE,
+                article_id,
+            )
             return True
         await self._redis.zrem(key, item_key)
         await self._redis.hincrby(RedisConstant.COMMENT_LIKE_COUNT_MAP_KEY, item_key, -1)
+        await mark_action_count_dirty(
+            self._redis,
+            RedisConstant.COMMENT_LIKE_COUNT_MAP_KEY,
+            ObjectTypeEnum.COMMENT,
+            ActionTypeEnum.LIKE,
+            article_id,
+        )
         return False

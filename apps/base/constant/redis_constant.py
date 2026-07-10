@@ -1,5 +1,8 @@
 class RedisConstant:
 
+    # 行为计数同步
+    ACTION_COUNT_DIRTY_SET_KEY = "action_count_dirty_set"
+
     # 网站相关
     WEBSITE_VIEW_COUNT_KEY = "website_view_count"
     WEBSITE_VIEW_COUNT_THROTTLE_KEY = "website_view_count_throttle"

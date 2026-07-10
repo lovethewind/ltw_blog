@@ -2,9 +2,6 @@ from apps.base.core.depend_inject import ContainerUtil, GetValue
 from apps.web.config.nacos_config import NacosConfig
 from apps.web.utils.path_util import PathUtil
 
-DEFAULT_SERVER_HOST = "0.0.0.0"
-DEFAULT_SERVER_PORT = 8001
-
 _container_initialized = False
 
 
@@ -28,7 +25,7 @@ def get_server_host() -> str:
     :return: 服务监听地址
     """
     init_container_config()
-    return GetValue("app.server.host") or DEFAULT_SERVER_HOST
+    return GetValue("app.server.host")
 
 
 def get_server_port() -> int:
@@ -38,7 +35,7 @@ def get_server_port() -> int:
     :return: 服务监听端口
     """
     init_container_config()
-    return int(GetValue("app.server.port") or DEFAULT_SERVER_PORT)
+    return int(GetValue("app.server.port"))
 
 
 def get_server_bind() -> str:

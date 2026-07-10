@@ -1,11 +1,11 @@
 {
   "project": "ltw-blog",
   "version": "0.0.1",
-  "generatedAt": "2026-07-10T20:52:04+08:00",
+  "generatedAt": "2026-07-10T22:08:59+08:00",
   "branch": "master",
-  "sourceCommit": "c645e484b69c15a26f7338ddfdc1f9b2d3ff0f20",
-  "sourceCommitShort": "c645e48",
-  "sourceCommitTime": "2026-07-10T20:50:48+08:00",
-  "sourceCommitSubject": "feat:采用sqlalchemy查询数据",
+  "sourceCommit": "640ff4cb96b789ebebf5e72b673ec1a6a8dcc686",
+  "sourceCommitShort": "640ff4c",
+  "sourceCommitTime": "2026-07-10T22:00:15+08:00",
+  "sourceCommitSubject": "feat:定时从redis同步数量数据到db",
   "note": "pre-commit 生成；sourceCommit 为提交前 HEAD，不能表示本次提交自己的 hash。"
 }

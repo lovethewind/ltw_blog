@@ -7,7 +7,7 @@
 
 ```bash
 uv sync
-uv run gunicorn -c apps/web/config.py apps.web.run:create_app
+uv run gunicorn -c apps/web/gunicorn_config.py apps.web.run:create_app
 ```
 
 服务监听地址从配置读取，默认配置在 `apps/web/resources/bootstrap.yaml` 的 `app.server.host` 和 `app.server.port`，Nacos 中同名配置会覆盖默认值。

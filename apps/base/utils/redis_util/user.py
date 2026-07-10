@@ -5,8 +5,9 @@ from apps.base.constant.redis_constant import RedisConstant
 from apps.base.core.depend_inject import logger
 from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.action import ActionTypeEnum, ObjectTypeEnum
-from apps.base.models.action import Action
+from apps.base.models.action import Action, ActionCount
 from apps.base.models.user import User
+from apps.base.utils.redis_util.action_count import mark_action_count_dirty
 
 
 class UserMethod:
@@ -39,23 +40,44 @@ class UserMethod:
         key = f"{RedisConstant.USER_UID_GENERATOR_KEY}"
         return await self._redis.incr(key)
 
-    async def add_view_count(self, user_id: int):
+    async def add_view_count(self, user_id: int) -> int:
         """
         增加用户访问量
         :param user_id: 用户id
         :return: 新浏览次数
         """
         ret = await self._redis.hincrby(RedisConstant.USER_VIEW_COUNT_MAP_KEY, str(user_id))
+        await mark_action_count_dirty(
+            self._redis,
+            RedisConstant.USER_VIEW_COUNT_MAP_KEY,
+            ObjectTypeEnum.USER,
+            ActionTypeEnum.VIEW,
+            user_id,
+        )
         return ret
 
-    async def get_view_count(self, user_id: int):
+    async def get_view_count(self, user_id: int) -> int:
         """
-         获取用户访问量
-        :param user_id:
-        :return:
+        获取用户访问量。
+
+        :param user_id: 用户 ID。
+        :return: 用户访问量。
         """
-        ret = await self._redis.hget(RedisConstant.USER_VIEW_COUNT_MAP_KEY, str(user_id))
-        return int(ret) if ret else 0
+        key = str(user_id)
+        ret = await self._redis.hget(RedisConstant.USER_VIEW_COUNT_MAP_KEY, key)
+        if ret is None:
+            ret = (
+                await db.scalar(
+                    select(ActionCount.count).where(
+                        ActionCount.obj_id == user_id,
+                        ActionCount.obj_type == ObjectTypeEnum.USER,
+                        ActionCount.action_type == ActionTypeEnum.VIEW,
+                    )
+                )
+                or 0
+            )
+            await self._redis.hset(RedisConstant.USER_VIEW_COUNT_MAP_KEY, key, str(ret))
+        return int(ret)
 
     async def get_user_error_count(self, user_id: int):
         key = f"{RedisConstant.USER_ERROR_COUNT_KEY}:{user_id}"

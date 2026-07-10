@@ -3,7 +3,7 @@ from enum import IntEnum
 
 class ActionTypeEnum(IntEnum):
     """
-    动作类型 1:点赞/喜欢 2:收藏 3:关注 4:访问量 5:黑名单
+    动作类型 1:点赞/喜欢 2:收藏 3:关注 4:访问量 5:黑名单 6:评论
     """
 
     LIKE = 1
@@ -11,6 +11,7 @@ class ActionTypeEnum(IntEnum):
     FOLLOW = 3
     VIEW = 4
     BLACKLIST = 5
+    COMMENT = 6
 
 
 class ObjectTypeEnum(IntEnum):

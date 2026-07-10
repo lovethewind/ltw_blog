@@ -9,6 +9,7 @@ from apps.base.enum.action import ActionTypeEnum, ObjectTypeEnum
 from apps.base.enum.comment import CommentStatusEnum
 from apps.base.models.action import Action, ActionCount
 from apps.base.models.comment import Comment
+from apps.base.utils.redis_util.action_count import mark_action_count_dirty
 
 
 class ArticleMethod:
@@ -61,9 +62,23 @@ class ArticleMethod:
         if score is None:
             await self._redis.zadd(key, {item_key: time.time()})
             await self._redis.hincrby(RedisConstant.ARTICLE_LIKE_COUNT_MAP_KEY, item_key, 1)
+            await mark_action_count_dirty(
+                self._redis,
+                RedisConstant.ARTICLE_LIKE_COUNT_MAP_KEY,
+                ObjectTypeEnum.ARTICLE,
+                ActionTypeEnum.LIKE,
+                article_id,
+            )
             return True
         await self._redis.zrem(key, item_key)
         await self._redis.hincrby(RedisConstant.ARTICLE_LIKE_COUNT_MAP_KEY, item_key, -1)
+        await mark_action_count_dirty(
+            self._redis,
+            RedisConstant.ARTICLE_LIKE_COUNT_MAP_KEY,
+            ObjectTypeEnum.ARTICLE,
+            ActionTypeEnum.LIKE,
+            article_id,
+        )
         return False
 
     async def get_article_collect_count(self, article_id: int) -> int:
@@ -108,9 +123,23 @@ class ArticleMethod:
         if score is None:
             await self._redis.zadd(key, {item_key: time.time()})
             await self._redis.hincrby(RedisConstant.ARTICLE_COLLECT_COUNT_MAP_KEY, item_key, 1)
+            await mark_action_count_dirty(
+                self._redis,
+                RedisConstant.ARTICLE_COLLECT_COUNT_MAP_KEY,
+                ObjectTypeEnum.ARTICLE,
+                ActionTypeEnum.COLLECT,
+                article_id,
+            )
             return True
         await self._redis.zrem(key, item_key)
         await self._redis.hincrby(RedisConstant.ARTICLE_COLLECT_COUNT_MAP_KEY, item_key, -1)
+        await mark_action_count_dirty(
+            self._redis,
+            RedisConstant.ARTICLE_COLLECT_COUNT_MAP_KEY,
+            ObjectTypeEnum.ARTICLE,
+            ActionTypeEnum.COLLECT,
+            article_id,
+        )
         return False
 
     async def get_article_comment_count(self, article_id: int) -> int:
@@ -141,7 +170,7 @@ class ArticleMethod:
         """
         return sum([await self.get_article_comment_count(article_id) for article_id in article_ids])
 
-    async def incr_article_comment_count(self, article_id: int, count: int = 1):
+    async def incr_article_comment_count(self, article_id: int, count: int = 1) -> None:
         """
         增加/减少文章评论数
         :param article_id: 文章id
@@ -149,6 +178,13 @@ class ArticleMethod:
         :return:
         """
         await self._redis.hincrby(RedisConstant.ARTICLE_COMMENT_COUNT_MAP_KEY, str(article_id), count)
+        await mark_action_count_dirty(
+            self._redis,
+            RedisConstant.ARTICLE_COMMENT_COUNT_MAP_KEY,
+            ObjectTypeEnum.ARTICLE,
+            ActionTypeEnum.COMMENT,
+            article_id,
+        )
 
     async def get_article_view_count(self, article_id: int) -> int:
         """
@@ -181,8 +217,21 @@ class ArticleMethod:
         """
         return sum([await self.get_article_view_count(article_id) for article_id in article_ids])
 
-    async def incr_article_view_count(self, article_id: int):
+    async def incr_article_view_count(self, article_id: int) -> int:
+        """
+        增加文章访问数。
+
+        :param article_id: 文章 ID。
+        :return: 新访问数。
+        """
         ret = await self._redis.hincrby(RedisConstant.ARTICLE_VIEW_COUNT_MAP_KEY, str(article_id))
+        await mark_action_count_dirty(
+            self._redis,
+            RedisConstant.ARTICLE_VIEW_COUNT_MAP_KEY,
+            ObjectTypeEnum.ARTICLE,
+            ActionTypeEnum.VIEW,
+            article_id,
+        )
         return ret
 
     async def get_published_article(self, current: int, size: int) -> list[int]:

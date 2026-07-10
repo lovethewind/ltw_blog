@@ -1,6 +1,6 @@
 # @Time    : 2024/11/20 22:10
 # @Author  : frank
-# @File    : config.py
+# @File    : gunicorn_config.py
 # -*- coding:utf-8 _*-
 from apps.web.config.server_config import get_server_bind
 
