@@ -17,27 +17,19 @@ class UserMethod:
 
     def __init__(self, redis: Redis):
         self._redis = redis
-        self._inited = False
-
-    async def init(self):
-        key = f"{RedisConstant.USER_UID_GENERATOR_KEY}"
-        ret = await self._redis.get(key)
-        if not ret:
-            stmt = select(func.max(User.uid))
-            value = await db.scalar(stmt) or 0
-            value = max(value, 10000)
-            logger.info(f"init uid cache:{value}")
-            await self._redis.set(key, value)
-        self._inited = True
 
     async def gen_uid(self):
         """
         生成用户uid
         :return:
         """
-        if not self._inited:
-            await self.init()
         key = f"{RedisConstant.USER_UID_GENERATOR_KEY}"
+        if not await self._redis.exists(key):
+            stmt = select(func.max(User.uid))
+            value = await db.scalar(stmt) or 0
+            value = max(value, 10000)
+            logger.info(f"init uid cache:{value}")
+            await self._redis.set(key, value)
         return await self._redis.incr(key)
 
     async def add_view_count(self, user_id: int) -> int:

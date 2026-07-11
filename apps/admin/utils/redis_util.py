@@ -20,23 +20,6 @@ class AdminUserRedisMethod:
         :return: None。
         """
         self._redis = redis
-        self._inited = False
-
-    async def init(self) -> None:
-        """
-        初始化用户 UID 生成器。
-
-        :return: None。
-        """
-        key = RedisConstant.USER_UID_GENERATOR_KEY
-        ret = await self._redis.get(key)
-        if not ret:
-            stmt = select(func.max(User.uid))
-            value = await db.scalar(stmt) or 0
-            value = max(value, 10000)
-            logger.info(f"init uid cache:{value}")
-            await self._redis.set(key, value)
-        self._inited = True
 
     async def gen_uid(self) -> int:
         """
@@ -44,9 +27,13 @@ class AdminUserRedisMethod:
 
         :return: 用户 UID。
         """
-        if not self._inited:
-            await self.init()
         key = RedisConstant.USER_UID_GENERATOR_KEY
+        if not await self._redis.exists("uid"):
+            stmt = select(func.max(User.uid))
+            value = await db.scalar(stmt) or 0
+            value = max(value, 10000)
+            logger.info(f"init uid cache:{value}")
+            await self._redis.set(key, value)
         return await self._redis.incr(key)
 
 
