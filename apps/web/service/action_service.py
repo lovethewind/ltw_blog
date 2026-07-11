@@ -223,7 +223,7 @@ class ActionService:
             offset, limit = db.page(current, size)
             total, actions = await asyncio.gather(
                 db.scalar(select(func.count()).select_from(stmt.subquery())),
-                db.model_all(stmt.offset(offset).limit(limit)),
+                db.model_all(stmt.order_by(Action.id.desc()).offset(offset).limit(limit)),
             )
             # todo 支持查询
             article_ids = [action.obj_id for action in actions]
@@ -235,7 +235,7 @@ class ActionService:
             offset, limit = db.page(current, size)
             total, actions = await asyncio.gather(
                 db.scalar(select(func.count()).select_from(stmt.subquery())),
-                db.model_all(stmt.offset(offset).limit(limit)),
+                db.model_all(stmt.order_by(Action.id.desc()).offset(offset).limit(limit)),
             )
             # 查询关注或者粉丝列表
             user_ids = [action.obj_id if action_query_vo.user_id else action.user_id for action in actions]
@@ -251,7 +251,7 @@ class ActionService:
             offset, limit = db.page(current, size)
             total, actions = await asyncio.gather(
                 db.scalar(select(func.count()).select_from(stmt.subquery())),
-                db.model_all(stmt.offset(offset).limit(limit)),
+                db.model_all(stmt.order_by(Action.id.desc()).offset(offset).limit(limit)),
             )
             ret = []
             for record in actions:

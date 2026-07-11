@@ -1,8 +1,8 @@
 from sqlalchemy import JSON, BigInteger, Boolean, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
+from apps.base.core.sqlalchemy.base_model import BaseModel
 from apps.base.enum.notice import NoticeTypeEnum
-from apps.base.models.base import BaseModel
 
 
 class Notice(BaseModel):

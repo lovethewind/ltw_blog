@@ -6,8 +6,8 @@ from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from apps.base.core.sqlalchemy.base_model import BaseModel
 from apps.base.core.sqlalchemy.session import get_session_factory
-from apps.base.models.base import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -84,7 +84,7 @@ class AsyncDBHelper:
         :param return_value: 是否刷新并返回插入后的模型对象。
         :return: 插入后的模型对象；不需要返回值时返回 None。
         """
-        async with self.session_factory() as session:
+        async with self.atomic() as session:
             session.add(data)
             if not return_value:
                 return None

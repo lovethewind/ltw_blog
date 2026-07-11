@@ -8,6 +8,7 @@ module_path = Path(__file__).parent.parent.parent
 if module_path not in sys.path:
     sys.path.append(str(module_path))
 
+import apps.admin.config.logger_config  # noqa: F401
 from apps.admin.config.server_config import get_server_host, get_server_port
 from apps.admin.core.create_app import create_app
 

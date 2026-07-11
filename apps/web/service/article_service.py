@@ -91,9 +91,10 @@ class ArticleService:
                 stmt = stmt.order_by(Article.id.asc())
             case _:
                 stmt = stmt.order_by(Article.id.desc())
+        ordered_stmt = stmt
         total, articles = await asyncio.gather(
             db.scalar(total_stmt),
-            db.model_all(stmt.offset(offset).limit(limit)),
+            db.model_all(ordered_stmt.offset(offset).limit(limit)),
         )
         records = await self.article_dao.get_article_detail_by_ids(articles=articles)
         return {"total": total, "records": records}
@@ -132,7 +133,9 @@ class ArticleService:
         # 获取前一篇和后一篇文章
         last_article, nex_article, newest_articles = await asyncio.gather(
             db.model_first(
-                select(Article).where(Article.id < article_id, Article.status == ArticleStatusEnum.PUBLISHED)
+                select(Article)
+                .where(Article.id < article_id, Article.status == ArticleStatusEnum.PUBLISHED)
+                .order_by(Article.id.desc())
             ),
             db.model_first(
                 select(Article)
@@ -140,7 +143,10 @@ class ArticleService:
                 .order_by(Article.id)
             ),
             db.model_all(
-                select(Article).where(Article.id != article_id, Article.status == ArticleStatusEnum.PUBLISHED).limit(5)
+                select(Article)
+                .where(Article.id != article_id, Article.status == ArticleStatusEnum.PUBLISHED)
+                .order_by(Article.id.desc())
+                .limit(5)
             ),
         )
         # 获取推荐文章单独一个接口

@@ -70,7 +70,7 @@ class SearchService:
         size = search_vo.page_size
         offset, limit = db.page(current, size)
         total_stmt = select(func.count()).select_from(stmt.subquery())
-        user_stmt = stmt.offset(offset).limit(limit)
+        user_stmt = stmt.order_by(User.id.desc()).offset(offset).limit(limit)
         total, users = await asyncio.gather(
             db.scalar(total_stmt),
             db.model_all(user_stmt),
@@ -129,7 +129,7 @@ class SearchService:
         pages = (total + size - 1) // size
         for i in range(pages):
             offset, limit = db.page(i + 1, size)
-            articles = await db.model_all(stmt.offset(offset).limit(limit))
+            articles = await db.model_all(stmt.order_by(Article.id.desc()).offset(offset).limit(limit))
             records = await self.article_dao.get_article_detail_by_ids(articles=articles)
             ret = []
             for record in records:

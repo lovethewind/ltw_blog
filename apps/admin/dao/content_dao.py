@@ -3,9 +3,9 @@ from typing import Any, TypeVar
 from sqlalchemy import Select, delete, func, or_, select, update
 
 from apps.base.core.depend_inject import Component
+from apps.base.core.sqlalchemy.base_model import BaseModel
 from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.models.article import Article
-from apps.base.models.base import BaseModel
 from apps.base.models.category import Category, Tag
 from apps.base.models.comment import Comment
 from apps.base.models.config import Config

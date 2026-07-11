@@ -94,7 +94,9 @@ class PictureService:
         offset, limit = db.page(current, size)
         total, albums = await asyncio.gather(
             db.scalar(select(func.count()).select_from(PictureAlbum).where(*filters)),
-            db.model_all(select(PictureAlbum).where(*filters).offset(offset).limit(limit)),
+            db.model_all(
+                select(PictureAlbum).where(*filters).order_by(PictureAlbum.id.desc()).offset(offset).limit(limit)
+            ),
         )
         return {"total": total, "records": PictureAlbumDTO.bulk_model_validate(albums)}
 

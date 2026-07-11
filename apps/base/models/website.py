@@ -1,8 +1,8 @@
 from sqlalchemy import BigInteger, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
+from apps.base.core.sqlalchemy.base_model import BaseModel
 from apps.base.enum.common import CheckStatusEnum
-from apps.base.models.base import BaseModel
 
 
 class Website(BaseModel):

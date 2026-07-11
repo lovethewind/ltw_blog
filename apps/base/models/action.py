@@ -1,7 +1,7 @@
 from sqlalchemy import BigInteger, Boolean, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 
-from apps.base.models.base import BaseModel
+from apps.base.core.sqlalchemy.base_model import BaseModel
 
 
 class Action(BaseModel):

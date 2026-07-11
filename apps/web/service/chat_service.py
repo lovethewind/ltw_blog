@@ -300,7 +300,7 @@ class ChatService:
         offset, limit = db.page(current_page, page_size)
         total, contacts = await asyncio.gather(
             db.scalar(select(func.count()).select_from(Contact).where(*filters)),
-            db.model_all(select(Contact).where(*filters).offset(offset).limit(limit)),
+            db.model_all(select(Contact).where(*filters).order_by(Contact.id.desc()).offset(offset).limit(limit)),
         )
         records = ContactDTO.bulk_model_validate(contacts)
         for contact in records:

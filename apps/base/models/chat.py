@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
+from apps.base.core.sqlalchemy.base_model import BaseModel
 from apps.base.enum.chat import (
     ChatGroupJoinTypeEnum,
     ChatGroupRoleEnum,
@@ -10,7 +11,6 @@ from apps.base.enum.chat import (
     ChatMessageTypeEnum,
     ContactApplyStatusEnum,
 )
-from apps.base.models.base import BaseModel
 
 
 class Contact(BaseModel):

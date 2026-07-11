@@ -2,7 +2,7 @@ from sqlalchemy import BigInteger, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from apps.base.constant.common_constant import CommonConstant
-from apps.base.models.base import BaseModel
+from apps.base.core.sqlalchemy.base_model import BaseModel
 
 
 class Message(BaseModel):

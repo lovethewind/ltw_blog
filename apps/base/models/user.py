@@ -3,8 +3,8 @@ from datetime import datetime
 from sqlalchemy import BigInteger, Boolean, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
+from apps.base.core.sqlalchemy.base_model import BaseModel
 from apps.base.enum.user import GenderEnum
-from apps.base.models.base import BaseModel
 
 
 class User(BaseModel):

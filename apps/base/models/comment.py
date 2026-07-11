@@ -2,9 +2,9 @@ from sqlalchemy import BigInteger, Index, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from apps.base.constant.common_constant import CommonConstant
+from apps.base.core.sqlalchemy.base_model import BaseModel
 from apps.base.enum.action import ObjectTypeEnum
 from apps.base.enum.comment import CommentStatusEnum
-from apps.base.models.base import BaseModel
 
 
 class Comment(BaseModel):

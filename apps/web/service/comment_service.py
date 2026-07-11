@@ -56,7 +56,13 @@ class CommentService:
         total, first_level_comment_count, first_level_comments = await asyncio.gather(
             db.scalar(select(func.count()).select_from(Comment).where(*filters)),
             db.scalar(select(func.count()).select_from(Comment).where(*filters, first_level_filter)),
-            db.model_all(select(Comment).where(*filters, first_level_filter).offset(offset).limit(limit)),
+            db.model_all(
+                select(Comment)
+                .where(*filters, first_level_filter)
+                .order_by(Comment.id.desc())
+                .offset(offset)
+                .limit(limit)
+            ),
         )
         first_level_comments = CommentDTO.bulk_model_validate(first_level_comments)
         comment_ids = [comment.id for comment in first_level_comments]
@@ -111,7 +117,7 @@ class CommentService:
         filters = [Comment.first_level_id == comment_id, Comment.status == CommentStatusEnum.PASS]
         total, comments = await asyncio.gather(
             db.scalar(select(func.count()).select_from(Comment).where(*filters)),
-            db.model_all(select(Comment).where(*filters).offset(offset).limit(limit)),
+            db.model_all(select(Comment).where(*filters).order_by(Comment.id.desc()).offset(offset).limit(limit)),
         )
         records = CommentDTO.bulk_model_validate(comments)
         for comment in records:
