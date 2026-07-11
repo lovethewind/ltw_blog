@@ -14,7 +14,6 @@ from apps.base.enum.comment import CommentStatusEnum
 from apps.base.enum.notice import NoticeTypeEnum
 from apps.base.enum.user import UserSettingsEnum
 from apps.base.models.comment import Comment
-from apps.base.utils.redis_util import RedisUtil
 from apps.web.core.context_vars import ContextVars
 from apps.web.core.kafka.util import KafkaUtil
 from apps.web.dao.article_dao import ArticleDao
@@ -24,6 +23,7 @@ from apps.web.dto.chat_dto import WSMessageDTO
 from apps.web.dto.comment_dto import CommentDTO
 from apps.web.dto.notice_dto import NoticeSaveDTO
 from apps.web.dto.user_dto import UserBaseInfoDTO
+from apps.web.utils.redis_util import WebRedisUtil
 from apps.web.utils.ws_util import manager
 from apps.web.vo.comment_vo import CommentAddVO, CommentQueryVO
 
@@ -33,7 +33,7 @@ class CommentService:
     user_dao: UserDao = Autowired()
     picture_dao: PictureDao = Autowired()
     article_dao: ArticleDao = Autowired()
-    redis_util: RedisUtil = Autowired()
+    redis_util: WebRedisUtil = Autowired()
     kafka_util: KafkaUtil = Autowired()
 
     async def list_comments(self, current: int, size: int, comment_query_vo: CommentQueryVO) -> dict:

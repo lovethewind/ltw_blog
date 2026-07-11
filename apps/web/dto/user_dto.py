@@ -4,7 +4,8 @@ from typing import Optional, TypeAlias
 
 from pydantic import Field
 
-from apps.base.enum.user import GenderEnum, UserSettingsEnum
+from apps.base.dto.user_dto import UserBaseInfoDTO
+from apps.base.enum.user import UserSettingsEnum
 from apps.web.dto.base_dto import BaseDTO
 
 UserSettingsType: TypeAlias = dict[UserSettingsEnum, str | bool]
@@ -84,19 +85,6 @@ class UserCommonInfoDTO(BaseDTO):
     user_settings: Optional[UserSettingsType] = None
 
 
-class UserBaseInfoDTO(BaseDTO):
-    """
-    公用查询用户的基本信息，包括签名等
-    """
-
-    id: Optional[int] = None
-    nickname: Optional[str] = None
-    avatar: Optional[str] = None
-    address: Optional[str] = None
-    gender: Optional[GenderEnum] = None
-    summary: Optional[str] = None
-
-
 class UserSimpleInfoDTO(BaseDTO):
     """
     用户极简信息，用于如文章列表里的头像昵称显示
@@ -118,3 +106,15 @@ class WechatScanResultEnum(IntEnum):
 class WechatScanResultDTO(BaseDTO):
     status: WechatScanResultEnum = WechatScanResultEnum.NOT_SCAN
     token: Optional[str] = None
+
+
+__all__ = [
+    "UserBaseInfoDTO",
+    "UserRestrictionDTO",
+    "UserInfoDTO",
+    "UserCommonInfoDTO",
+    "UserSimpleInfoDTO",
+    "WechatScanResultEnum",
+    "WechatScanResultDTO",
+    "UserSettingsType",
+]

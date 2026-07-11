@@ -11,11 +11,11 @@ from apps.base.core.depend_inject import Autowired, Component
 from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.article import ArticleStatusEnum
 from apps.base.models.article import Article
-from apps.base.utils.redis_util import RedisUtil
 from apps.web.dao.user_dao import UserDao
 from apps.web.dto.article_dto import ArticleListDTO
 from apps.web.dto.base_dto import BaseDTO
 from apps.web.dto.user_dto import UserBaseInfoDTO
+from apps.web.utils.redis_util import WebRedisUtil
 from apps.web.utils.ws_util import manager
 
 T = TypeVar("T", bound=BaseDTO)
@@ -24,7 +24,7 @@ T = TypeVar("T", bound=BaseDTO)
 @Component()
 class ArticleDao:
     user_dao: UserDao = Autowired()
-    redis_util: RedisUtil = Autowired()
+    redis_util: WebRedisUtil = Autowired()
 
     async def get_article_detail_by_id(self, article_id: int) -> ArticleListDTO:
         """

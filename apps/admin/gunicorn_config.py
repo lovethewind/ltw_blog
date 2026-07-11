@@ -2,6 +2,7 @@
 # @Author  : frank
 # @File    : gunicorn_config.py
 # -*- coding:utf-8 _*-
+import apps.admin.config.logger_config  # noqa: F401
 from apps.admin.config.server_config import get_server_bind
 
 bind = get_server_bind()  # 指定监听的地址和端口，用于nginx转发

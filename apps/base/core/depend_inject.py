@@ -224,8 +224,8 @@ class ContainerUtil[T]:
             try:
                 bean = container.providers.get(name)()
                 return bean
-            except AttributeError:
-                raise ValueError(f"bean [{name}] is not found")
+            except AttributeError as e:
+                raise ValueError(f"get bean [{name}] error: {e}")
 
     @classmethod
     def get_bean_func(cls, name: str | Type[T]):

@@ -1,6 +1,6 @@
+from apps.admin.config.nacos_config import NacosConfig
 from apps.admin.utils.path_util import AdminPathUtil
 from apps.base.core.depend_inject import ContainerUtil, GetValue
-from apps.web.config.nacos_config import NacosConfig
 
 _container_initialized = False
 
@@ -14,7 +14,11 @@ def init_container_config() -> None:
     global _container_initialized
     if _container_initialized:
         return
-    ContainerUtil.init(resource_dir=AdminPathUtil.RESOURCE_PATH, server_config_class=NacosConfig)
+    ContainerUtil.init(
+        resource_dir=AdminPathUtil.RESOURCE_PATH,
+        server_config_class=NacosConfig,
+        server_config_class_name="adminNacosConfig",
+    )
     _container_initialized = True
 
 

@@ -9,7 +9,6 @@ from apps.base.enum.notice import NoticeTypeEnum
 from apps.base.enum.user import UserSettingsEnum
 from apps.base.models.action import Action
 from apps.base.models.comment import Comment
-from apps.base.utils.redis_util import RedisUtil
 from apps.web.core.context_vars import ContextVars
 from apps.web.core.kafka.util import KafkaUtil
 from apps.web.dao.article_dao import ArticleDao
@@ -20,6 +19,7 @@ from apps.web.dto.action_dto import BlckListDTO, UserFollowInfoDTO
 from apps.web.dto.chat_dto import WSMessageDTO
 from apps.web.dto.notice_dto import NoticeSaveDTO
 from apps.web.dto.user_dto import UserBaseInfoDTO, UserSimpleInfoDTO
+from apps.web.utils.redis_util import WebRedisUtil
 from apps.web.utils.ws_util import manager
 from apps.web.vo.action_vo import ActionAddVO, ActionQueryVO, ActionTypeDetailQueryVO
 
@@ -30,7 +30,7 @@ class ActionService:
     article_dao: ArticleDao = Autowired()
     picture_dao: PictureDao = Autowired()
     chat_dao: ChatDao = Autowired()
-    redis_util: RedisUtil = Autowired()
+    redis_util: WebRedisUtil = Autowired()
     kafka_util: KafkaUtil = Autowired()
 
     async def list_actions(

@@ -12,7 +12,6 @@ from apps.base.enum.chat import ContactApplyStatusEnum, ContactTypeEnum, WSMessa
 from apps.base.enum.error_code import ErrorCode
 from apps.base.exception.my_exception import MyException
 from apps.base.models.chat import ChatMessage, Contact, ContactApplyRecord, Conversation
-from apps.base.utils.redis_util import RedisUtil
 from apps.web.core.context_vars import ContextVars
 from apps.web.dao.chat_dao import ChatDao
 from apps.web.dao.user_dao import UserDao
@@ -27,6 +26,7 @@ from apps.web.dto.chat_dto import (
     UserProfileDTO,
     WSMessageDTO,
 )
+from apps.web.utils.redis_util import WebRedisUtil
 from apps.web.utils.ws_util import manager
 from apps.web.vo.chat_vo import (
     ContactApplyVO,
@@ -42,7 +42,7 @@ from apps.web.vo.chat_vo import (
 class ChatService:
     user_dao: UserDao = Autowired()
     chat_dao: ChatDao = Autowired()
-    redis_util: RedisUtil = Autowired()
+    redis_util: WebRedisUtil = Autowired()
 
     async def list_conversation(self, current_page: int, page_size: int) -> dict:
         """

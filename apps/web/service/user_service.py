@@ -24,7 +24,6 @@ from apps.base.utils.encrypt_util import EncryptUtil
 from apps.base.utils.ip_util import IpUtil
 from apps.base.utils.picture_util import PictureUtil
 from apps.base.utils.random_util import RandomUtil
-from apps.base.utils.redis_util import RedisUtil
 from apps.base.utils.wechat_util import WechatUtil
 from apps.web.core.context_vars import ContextVars
 from apps.web.core.kafka.util import KafkaUtil
@@ -41,6 +40,7 @@ from apps.web.dto.user_dto import (
     WechatScanResultDTO,
     WechatScanResultEnum,
 )
+from apps.web.utils.redis_util import WebRedisUtil
 from apps.web.utils.token_util import TokenUtil
 from apps.web.utils.ws_util import manager
 from apps.web.vo.user_vo import (
@@ -64,7 +64,7 @@ logger = logging.getLogger(__name__)
 class UserService:
     user_dao: UserDao = Autowired()
     chat_dao: ChatDao = Autowired()
-    redis_util: RedisUtil = Autowired()
+    redis_util: WebRedisUtil = Autowired()
     wechat_util: WechatUtil = Autowired()
     picture_util: PictureUtil = Autowired()
     kafka_util: KafkaUtil = Autowired()

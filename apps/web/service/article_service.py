@@ -11,7 +11,6 @@ from apps.base.enum.user import UserSettingsEnum
 from apps.base.exception.my_exception import MyException
 from apps.base.models.article import Article
 from apps.base.utils.picture_util import PictureUtil
-from apps.base.utils.redis_util import RedisUtil
 from apps.web.core.context_vars import ContextVars
 from apps.web.core.es.constant.es_constant import ESConstant
 from apps.web.core.es.utils.es_util import ESUtil
@@ -20,6 +19,7 @@ from apps.web.dao.user_dao import UserDao
 from apps.web.dto.article_dto import ArticleBaseInfoDTO, ArticleDTO, ArticleListDTO
 from apps.web.dto.user_dto import UserBaseInfoDTO, UserSimpleInfoDTO
 from apps.web.service.source_service import SourceService
+from apps.web.utils.redis_util import WebRedisUtil
 from apps.web.utils.ws_util import manager
 from apps.web.vo.article_vo import ArticleAddViewCountVO, ArticleQueryVO, ArticleUpdateVO, ArticleVO, OrderTypeEnum
 from apps.web.vo.batch_vo import BatchVO
@@ -28,7 +28,7 @@ from apps.web.vo.batch_vo import BatchVO
 @Component()
 class ArticleService:
     source_service: SourceService = Autowired()
-    redis_util: RedisUtil = Autowired()
+    redis_util: WebRedisUtil = Autowired()
     picture_util: PictureUtil = Autowired()
     es_util: ESUtil = Autowired()
     user_dao: UserDao = Autowired()
@@ -115,6 +115,7 @@ class ArticleService:
         async with db.atomic() as session:
             session.add(article)
             await session.flush()
+            await session.refresh(article)
             await self._update_article_to_es(article)
         return article.id
 

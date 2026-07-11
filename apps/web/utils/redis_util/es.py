@@ -8,9 +8,9 @@ from typing import Any
 from redis.asyncio import Redis
 
 from apps.base.constant.redis_constant import RedisConstant
-from apps.web.dto.article_dto import ArticleBaseInfoDTO, ArticleListDTO
-from apps.web.dto.base_dto import BaseDTO
-from apps.web.vo.search_vo import ArticleSearchVO
+from apps.base.dto.article_dto import ArticleBaseInfoDTO, ArticleListDTO
+from apps.base.dto.base_dto import BaseDTO
+from apps.base.vo.search_vo import ArticleSearchVO
 
 
 class ESMethod:

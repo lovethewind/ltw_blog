@@ -13,16 +13,16 @@ from apps.base.enum.action import ActionTypeEnum, ObjectTypeEnum
 from apps.base.enum.chat import ContactTypeEnum
 from apps.base.models.action import Action
 from apps.base.models.chat import ChatGroup, ChatGroupMember, ChatMessage, Contact, Conversation
-from apps.base.utils.redis_util import RedisUtil
 from apps.web.dto.base_dto import BaseDTO
 from apps.web.dto.chat_dto import ChatMessageDTO, ChatSaveMessageDTO, ConversationDTO, GroupInfoDTO
+from apps.web.utils.redis_util import WebRedisUtil
 
 T = TypeVar("T", bound=BaseDTO)
 
 
 @Component()
 class ChatDao:
-    redis_util: RedisUtil = Autowired()
+    redis_util: WebRedisUtil = Autowired()
     conversation_cache: dict[int, set[str]] = {}
 
     async def get_group_info(self, group_id: int) -> GroupInfoDTO | dict:

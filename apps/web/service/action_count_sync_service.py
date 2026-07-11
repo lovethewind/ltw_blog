@@ -4,8 +4,8 @@ from apps.base.constant.redis_constant import RedisConstant
 from apps.base.core.depend_inject import Autowired, Component, GetBean, logger
 from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.models.action import ActionCount
-from apps.base.utils.redis_util import RedisUtil
-from apps.base.utils.redis_util.action_count import ActionCountDirtyItem, parse_action_count_dirty_member
+from apps.web.utils.redis_util import WebRedisUtil
+from apps.web.utils.redis_util.action_count import ActionCountDirtyItem, parse_action_count_dirty_member
 
 
 @Component()
@@ -14,7 +14,7 @@ class ActionCountSyncService:
     行为计数同步服务。
     """
 
-    redis_util: RedisUtil = Autowired()
+    redis_util: WebRedisUtil = Autowired()
 
     async def sync_action_count(self, batch_size: int = 500) -> int:
         """

@@ -6,46 +6,53 @@ from redis.asyncio import Redis
 from redis.asyncio.lock import Lock
 from redis.exceptions import LockNotOwnedError
 
-from apps.base.core.depend_inject import Component, RefreshScope, Value, logger
-
-from .acrion import ActionMethod
-from .article import ArticleMethod
-from .chat import ChatMethod
-from .comment import CommentMethod
-from .es import ESMethod
-from .picture import PictureMethod
-from .user import UserMethod
-from .verify_code import VerifyCodeMethod
-from .website import WebsiteMethod
-from .wechat import WechatMethod
+from apps.base.core.depend_inject import Value, logger
 
 
-@Component()
-@RefreshScope("redis")
 class RedisUtil:
+    """
+    公共 Redis 客户端工具。
+    """
+
     config: dict = Value("redis")
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """
+        初始化 Redis 连接。
+
+        :return: None。
+        """
         pool = redis.ConnectionPool(decode_responses=True, **self.config)
         self.redis = redis.Redis(connection_pool=pool)
-        self.Article = ArticleMethod(self.redis)
-        self.Action = ActionMethod(self.redis)
-        self.VerifyCode = VerifyCodeMethod(self.redis)
-        self.User = UserMethod(self.redis)
-        self.Wechat = WechatMethod(self.redis)
-        self.Comment = CommentMethod(self.redis)
-        self.Website = WebsiteMethod(self.redis)
-        self.ES = ESMethod(self.redis)
-        self.Picture = PictureMethod(self.redis)
-        self.Chat = ChatMethod(self.redis)
 
-    async def get(self, key: str):
+    async def get(self, key: str) -> Any:
+        """
+        获取 Redis 字符串值。
+
+        :param key: Redis key。
+        :return: Redis 值。
+        """
         return await self.redis.get(key)
 
-    async def set(self, key: str, value: Any, *args, **kwargs):
+    async def set(self, key: str, value: Any, *args: Any, **kwargs: Any) -> Any:
+        """
+        设置 Redis 值。
+
+        :param key: Redis key。
+        :param value: Redis 值。
+        :param args: Redis set 位置参数。
+        :param kwargs: Redis set 关键字参数。
+        :return: Redis set 返回值。
+        """
         return await self.redis.set(key, value, *args, **kwargs)
 
-    async def delete(self, key: str):
+    async def delete(self, key: str) -> Any:
+        """
+        删除 Redis key。
+
+        :param key: Redis key。
+        :return: Redis delete 返回值。
+        """
         return await self.redis.delete(key)
 
     def get_lock(
@@ -55,8 +62,19 @@ class RedisUtil:
         sleep: float = 0.1,
         blocking: bool = False,
         blocking_timeout: int = 3,
-        renew=True,
-    ):
+        renew: bool = True,
+    ) -> "AsyncAutoRenewLock":
+        """
+        获取自动续期分布式锁。
+
+        :param name: 锁名称。
+        :param timeout: 锁超时时间。
+        :param sleep: 阻塞等待间隔。
+        :param blocking: 是否阻塞等待。
+        :param blocking_timeout: 阻塞等待超时时间。
+        :param renew: 是否自动续期。
+        :return: 自动续期锁。
+        """
         return AsyncAutoRenewLock(self.redis, name, timeout, sleep, blocking, blocking_timeout, renew)
 
 
@@ -70,7 +88,19 @@ class AsyncAutoRenewLock(Lock):
         blocking: bool = False,
         blocking_timeout: int = 30,
         renew: bool = True,
-    ):
+    ) -> None:
+        """
+        初始化自动续期锁。
+
+        :param _redis: Redis 客户端。
+        :param name: 锁名称。
+        :param timeout: 锁超时时间。
+        :param sleep: 阻塞等待间隔。
+        :param blocking: 是否阻塞等待。
+        :param blocking_timeout: 阻塞等待超时时间。
+        :param renew: 是否自动续期。
+        :return: None。
+        """
         self.renew = renew
         self.renew_ttl = round(timeout / 3, 2)
         self.renew_task: Optional[asyncio.Task] = None
@@ -93,7 +123,7 @@ class AsyncAutoRenewLock(Lock):
             self.renew_task = asyncio.create_task(self._renew_lock())
         return True
 
-    async def _renew_lock(self):
+    async def _renew_lock(self) -> None:
         """
         异步任务，用于自动续期锁。
         """
@@ -105,7 +135,7 @@ class AsyncAutoRenewLock(Lock):
                 continue
             return
 
-    async def release(self):
+    async def release(self) -> None:
         """
         释放锁并取消续期任务。
         """
@@ -116,9 +146,22 @@ class AsyncAutoRenewLock(Lock):
         if self.renew_task:
             self.renew_task.cancel()
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "AsyncAutoRenewLock":
+        """
+        进入异步锁上下文。
+
+        :return: 当前锁实例。
+        """
         await self.acquire()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """
+        退出异步锁上下文。
+
+        :param exc_type: 异常类型。
+        :param exc_val: 异常值。
+        :param exc_tb: 异常堆栈。
+        :return: None。
+        """
         await self.release()

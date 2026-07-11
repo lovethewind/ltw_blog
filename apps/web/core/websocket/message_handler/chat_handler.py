@@ -124,9 +124,9 @@ class ChatMessageHandler(BaseMessageHandler):
         :param message: 已保存的聊天消息
         :return: None
         """
-        from apps.base.utils.redis_util import RedisUtil
+        from apps.web.utils.redis_util import WebRedisUtil
 
-        redis_util = GetBean(RedisUtil)
+        redis_util = GetBean(WebRedisUtil)
         recipient_id = message.message.contact_id
         message.message.is_read = await manager.store.is_in_conversation(
             recipient_id,
@@ -158,11 +158,11 @@ class ChatMessageHandler(BaseMessageHandler):
         :param message: 已保存的聊天消息
         :return: None
         """
-        from apps.base.utils.redis_util import RedisUtil
         from apps.web.dao.chat_dao import ChatDao
+        from apps.web.utils.redis_util import WebRedisUtil
 
         chat_dao = GetBean(ChatDao)
-        redis_util = GetBean(RedisUtil)
+        redis_util = GetBean(WebRedisUtil)
         member_ids = set(await chat_dao.get_group_members(message.message.contact_id))
         member_ids.add(message.message.user_id)
         group_profile = await manager.get_group_info(

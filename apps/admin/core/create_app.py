@@ -14,6 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import Response
 
+from apps.admin.config.logger_config import logger
 from apps.admin.config.server_config import init_container_config
 from apps.admin.core.context_vars import AdminContextVars
 from apps.admin.utils.depends_util import AdminDependsUtil
@@ -22,7 +23,6 @@ from apps.base.core.sqlalchemy.session import close_sqlalchemy_engine, init_sqla
 from apps.base.enum.error_code import ErrorCode
 from apps.base.exception.my_exception import MyException
 from apps.base.utils.response_util import ResponseUtil
-from apps.web.config.logger_config import logger
 
 init_container_config()
 

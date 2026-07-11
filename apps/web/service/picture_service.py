@@ -18,12 +18,12 @@ from apps.base.exception.my_exception import MyException
 from apps.base.models.comment import Comment
 from apps.base.models.picture import Picture, PictureAlbum
 from apps.base.utils.picture_util import PictureUtil
-from apps.base.utils.redis_util import RedisUtil
 from apps.web.core.context_vars import ContextVars
 from apps.web.dao.user_dao import UserDao
 from apps.web.dto.picture_dto import PictureAlbumDTO, PictureDTO
 from apps.web.dto.user_dto import UserBaseInfoDTO
 from apps.web.service.source_service import SourceService
+from apps.web.utils.redis_util import WebRedisUtil
 from apps.web.utils.ws_util import manager
 from apps.web.vo.batch_vo import BatchVO
 from apps.web.vo.picture_vo import (
@@ -46,7 +46,7 @@ class PictureService:
 
     user_dao: UserDao = Autowired()
     picture_util: PictureUtil = Autowired()
-    redis_util: RedisUtil = Autowired()
+    redis_util: WebRedisUtil = Autowired()
     source_service: SourceService = Autowired()
 
     @classmethod

@@ -46,9 +46,10 @@ class WebSocketRedisStore:
 
         :return: Redis 客户端
         """
-        from apps.base.utils.redis_util import RedisUtil
 
-        return GetBean(RedisUtil).redis
+        from apps.web.utils.redis_util import WebRedisUtil
+
+        return GetBean(WebRedisUtil).redis
 
     def get_redis(self) -> Redis:
         """

@@ -4,13 +4,13 @@ from apps.admin.core.context_vars import AdminContextVars
 from apps.admin.dao.user_dao import AdminUserDao
 from apps.admin.dto.user_dto import AdminUserDTO, AdminUserInfoDTO
 from apps.admin.service.menu_service import AdminMenuService
+from apps.admin.utils.redis_util import AdminRedisUtil
 from apps.admin.vo.user_vo import AdminUserCreateVO, AdminUserQueryVO, AdminUserRoleUpdateVO, AdminUserUpdateVO
 from apps.base.core.depend_inject import Autowired, Component
 from apps.base.enum.error_code import ErrorCode
 from apps.base.exception.my_exception import MyException
 from apps.base.models.user import User
 from apps.base.utils.encrypt_util import EncryptUtil
-from apps.base.utils.redis_util import RedisUtil
 
 
 @Component()
@@ -21,7 +21,7 @@ class AdminUserService:
 
     admin_user_dao: AdminUserDao = Autowired()
     admin_menu_service: AdminMenuService = Autowired()
-    redis_util: RedisUtil = Autowired()
+    redis_util: AdminRedisUtil = Autowired()
 
     async def info(self) -> AdminUserInfoDTO:
         """

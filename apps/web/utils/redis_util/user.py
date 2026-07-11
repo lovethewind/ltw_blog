@@ -7,7 +7,7 @@ from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.action import ActionTypeEnum, ObjectTypeEnum
 from apps.base.models.action import Action, ActionCount
 from apps.base.models.user import User
-from apps.base.utils.redis_util.action_count import mark_action_count_dirty
+from apps.web.utils.redis_util.action_count import mark_action_count_dirty
 
 
 class UserMethod:

@@ -14,9 +14,9 @@ from apps.base.exception.my_exception import MyException
 from apps.base.models.user import User
 from apps.base.utils.ip_util import IpUtil
 from apps.base.utils.random_util import RandomUtil
-from apps.base.utils.redis_util import RedisUtil
 from apps.web.core.context_vars import ContextVars
 from apps.web.core.kafka.util import KafkaUtil
+from apps.web.utils.redis_util import WebRedisUtil
 from apps.web.vo.common_vo import EmailCodeVO, FeedbackVO, MobileCodeVO, UserEmailCodeVO, UserMobileCodeVO
 from apps.web.vo.user_vo import ValidateAccountExistVO
 
@@ -24,7 +24,7 @@ from apps.web.vo.user_vo import ValidateAccountExistVO
 @Component()
 @RefreshScope("github")
 class CommonService:
-    redis_util: RedisUtil = Autowired()
+    redis_util: WebRedisUtil = Autowired()
     kafka_util: KafkaUtil = Autowired()
     github_config: dict[str, Any] | None = Value("github")
 

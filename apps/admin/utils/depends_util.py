@@ -7,11 +7,11 @@ from sqlalchemy import func, select
 from starlette.requests import Request
 
 from apps.admin.core.context_vars import AdminContextVars
+from apps.admin.utils.token_util import AdminTokenUtil
 from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.error_code import ErrorCode
 from apps.base.exception.my_exception import MyException
 from apps.base.models.user import Menu, Role, RoleMenu, UserRole
-from apps.web.utils.token_util import TokenUtil
 
 F = TypeVar("F", bound=Callable[..., Awaitable[Any]])
 
@@ -34,7 +34,7 @@ class AdminDependsUtil:
         :raises MyException: token 缺失或无效时抛出
         """
         try:
-            user_id = TokenUtil.get_user_id(token)
+            user_id = AdminTokenUtil.get_user_id(token)
             return user_id
         except Exception as e:
             if nullable:
@@ -65,7 +65,7 @@ class AdminDependsUtil:
             token = request.headers.get(cls.TOKEN_NAME)
             if not token:
                 raise MyException(ErrorCode.TOKEN_IS_EMPTY)
-            user_id = TokenUtil.get_user_id(token)
+            user_id = AdminTokenUtil.get_user_id(token)
             return user_id
         except Exception as e:
             if nullable:
@@ -80,7 +80,7 @@ class AdminDependsUtil:
         :param token: 后台 token
         :return: 用户 ID
         """
-        user_id = TokenUtil.get_user_id(token)
+        user_id = AdminTokenUtil.get_user_id(token)
         return user_id
 
     @classmethod

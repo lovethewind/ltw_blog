@@ -7,10 +7,10 @@ import alibabacloud_oss_v2 as oss
 import alibabacloud_oss_v2.aio as oss_aio
 
 from apps.base.core.depend_inject import Component, RefreshScope, Value, logger
+from apps.base.dto.oss_dto import SignatureResultDTO
 from apps.base.enum.error_code import ErrorCode
 from apps.base.enum.oss import DirType
 from apps.base.exception.my_exception import MyException
-from apps.web.dto.oss_dto import SignatureResultDTO
 
 
 class UploadConfigInfo:
