@@ -1,11 +1,11 @@
 {
   "project": "ltw-blog",
   "version": "0.0.1",
-  "generatedAt": "2026-07-11T17:37:43+08:00",
+  "generatedAt": "2026-07-11T17:54:16+08:00",
   "branch": "master",
-  "sourceCommit": "f379aeb17eb43ca83777f9c7cc1b9c99381ff0f1",
-  "sourceCommitShort": "f379aeb",
-  "sourceCommitTime": "2026-07-11T17:35:39+08:00",
-  "sourceCommitSubject": "feat:调整文件位置(redis_util)",
+  "sourceCommit": "f6e03e1e9a8081aef2b9e15528533d2b3a61489c",
+  "sourceCommitShort": "f6e03e1",
+  "sourceCommitTime": "2026-07-11T17:53:57+08:00",
+  "sourceCommitSubject": "fix: redis_util实例获取失败",
   "note": "pre-commit 生成；sourceCommit 为提交前 HEAD，不能表示本次提交自己的 hash。"
 }

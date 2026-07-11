@@ -224,7 +224,7 @@ class ContainerUtil[T]:
             try:
                 bean = container.providers.get(name)()
                 return bean
-            except AttributeError as e:
+            except Exception as e:
                 raise ValueError(f"get bean [{name}] error: {e}")
 
     @classmethod

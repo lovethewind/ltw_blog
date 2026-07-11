@@ -6,9 +6,11 @@ from redis.asyncio import Redis
 from redis.asyncio.lock import Lock
 from redis.exceptions import LockNotOwnedError
 
-from apps.base.core.depend_inject import Value, logger
+from apps.base.core.depend_inject import Component, RefreshScope, Value, logger
 
 
+@Component()
+@RefreshScope("redis")
 class RedisUtil:
     """
     公共 Redis 客户端工具。
