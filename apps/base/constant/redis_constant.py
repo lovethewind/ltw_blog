@@ -3,6 +3,9 @@ class RedisConstant:
     # 行为计数同步
     ACTION_COUNT_DIRTY_SET_KEY = "action_count_dirty_set"
 
+    # 定时任务同步
+    SCHEDULER_JOB_CHANGED_CHANNEL = "scheduler:job:changed"
+
     # 网站相关
     WEBSITE_VIEW_COUNT_KEY = "website_view_count"
     WEBSITE_VIEW_COUNT_THROTTLE_KEY = "website_view_count_throttle"

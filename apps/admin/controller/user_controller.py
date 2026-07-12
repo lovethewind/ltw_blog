@@ -4,7 +4,13 @@ from starlette.responses import Response
 
 from apps.admin.service.user_service import AdminUserService
 from apps.admin.utils.depends_util import permission
-from apps.admin.vo.user_vo import AdminUserCreateVO, AdminUserQueryVO, AdminUserRoleUpdateVO, AdminUserUpdateVO
+from apps.admin.vo.user_vo import (
+    AdminLoginVO,
+    AdminUserCreateVO,
+    AdminUserQueryVO,
+    AdminUserRoleUpdateVO,
+    AdminUserUpdateVO,
+)
 from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 
@@ -18,6 +24,36 @@ class AdminUserController:
     """
 
     admin_user_service: AdminUserService = Autowired()
+
+    @router.post("/login", summary="后台登录")
+    async def login(self, login_vo: AdminLoginVO = Body()) -> Response:
+        """
+        后台管理员登录。
+
+        :param login_vo: 后台登录参数
+        :return: 登录结果
+        """
+        ret = await self.admin_user_service.login(login_vo)
+        return ResponseUtil.success(ret)
+
+    @router.post("/logout", summary="后台退出登录")
+    async def logout(self) -> Response:
+        """
+        后台管理员退出登录。
+
+        :return: 退出登录结果
+        """
+        return ResponseUtil.success()
+
+    @router.get("/codes", summary="获取后台权限码")
+    async def codes(self) -> Response:
+        """
+        获取当前后台管理员权限码。
+
+        :return: 权限码列表
+        """
+        ret = await self.admin_user_service.codes()
+        return ResponseUtil.success(ret)
 
     @router.get("/info", summary="获取后台当前用户信息")
     async def info(self) -> Response:

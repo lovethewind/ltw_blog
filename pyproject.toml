@@ -5,6 +5,7 @@ description = "心悦心享博客"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "apscheduler==3.11.3",
     "bcrypt==5.0.0",
     "fastapi==0.138.0",
     "python-jose==3.5.0",

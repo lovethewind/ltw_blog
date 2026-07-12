@@ -11,7 +11,7 @@ from apps.base.constant.redis_constant import RedisConstant
 from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.action import ActionTypeEnum, ObjectTypeEnum
 from apps.base.models.action import ActionCount
-from apps.web.utils.redis_util.action_count import mark_action_count_dirty
+from apps.base.utils.action_count_util import mark_action_count_dirty
 
 
 class PictureMethod:

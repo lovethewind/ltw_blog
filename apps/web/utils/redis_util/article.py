@@ -9,7 +9,7 @@ from apps.base.enum.action import ActionTypeEnum, ObjectTypeEnum
 from apps.base.enum.comment import CommentStatusEnum
 from apps.base.models.action import Action, ActionCount
 from apps.base.models.comment import Comment
-from apps.web.utils.redis_util.action_count import mark_action_count_dirty
+from apps.base.utils.action_count_util import mark_action_count_dirty
 
 
 class ArticleMethod:

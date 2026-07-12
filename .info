@@ -1,11 +1,11 @@
 {
   "project": "ltw-blog",
   "version": "0.0.1",
-  "generatedAt": "2026-07-11T22:38:30+08:00",
+  "generatedAt": "2026-07-12T23:13:28+08:00",
   "branch": "master",
-  "sourceCommit": "c3266118b4465ab0cf2e7c8b464735cb2687533b",
-  "sourceCommitShort": "c326611",
-  "sourceCommitTime": "2026-07-11T19:48:00+08:00",
-  "sourceCommitSubject": "fix: 修复查询排序及db.create",
+  "sourceCommit": "d65c62d9da3b14e2f0e2af64aad1e61f6ae2b36e",
+  "sourceCommitShort": "d65c62d",
+  "sourceCommitTime": "2026-07-12T23:13:18+08:00",
+  "sourceCommitSubject": "feat:admin接口文件调整；添加定时任务功能",
   "note": "pre-commit 生成；sourceCommit 为提交前 HEAD，不能表示本次提交自己的 hash。"
 }

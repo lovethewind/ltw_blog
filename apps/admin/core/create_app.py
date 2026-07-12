@@ -242,7 +242,7 @@ class AdminWhiteListMiddleware(BaseHTTPMiddleware):
     cache_whitelist: dict[str, bool] = {}
     base_whitelist = [
         "/openapi.json",
-        "/admin/auth/login",
+        "/admin/user/login",
         "/admin/common/health",
     ]
 
