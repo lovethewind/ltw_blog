@@ -8,7 +8,7 @@ from apps.admin.vo.website_category_vo import AdminWebsiteCategoryCreateVO, Admi
 from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 
-router = APIRouter(prefix="/content", tags=["后台内容管理"])
+router = APIRouter(prefix="/website/category", tags=["后台网站导航分类管理"])
 
 
 @Controller(router)
@@ -17,8 +17,8 @@ class AdminWebsiteCategoryController:
 
     admin_website_category_service: AdminWebsiteCategoryService = Autowired()
 
-    @router.get("/website/category/list", summary="查询网站导航分类列表")
-    @permission("content:websiteCategory:query")
+    @router.get("/list", summary="查询网站导航分类列表")
+    @permission("websiteCategory:query")
     async def list_website_categories(self) -> Response:
         """
         查询网站导航分类列表。
@@ -28,8 +28,8 @@ class AdminWebsiteCategoryController:
         ret = await self.admin_website_category_service.list_website_categories()
         return ResponseUtil.success(ret)
 
-    @router.post("/website/category", summary="创建网站导航分类")
-    @permission("content:websiteCategory:create")
+    @router.post("/create", summary="创建网站导航分类")
+    @permission("websiteCategory:create")
     async def create_website_category(self, category_vo: AdminWebsiteCategoryCreateVO = Body()) -> Response:
         """
         创建网站导航分类。
@@ -40,8 +40,8 @@ class AdminWebsiteCategoryController:
         ret = await self.admin_website_category_service.create_website_category(category_vo)
         return ResponseUtil.success(ret)
 
-    @router.put("/website/category/{category_id}", summary="更新网站导航分类")
-    @permission("content:websiteCategory:update")
+    @router.put("/{category_id}", summary="更新网站导航分类")
+    @permission("websiteCategory:update")
     async def update_website_category(
         self, category_id: int, category_vo: AdminWebsiteCategoryUpdateVO = Body()
     ) -> Response:
@@ -55,8 +55,8 @@ class AdminWebsiteCategoryController:
         ret = await self.admin_website_category_service.update_website_category(category_id, category_vo)
         return ResponseUtil.success(ret)
 
-    @router.delete("/website/category/{category_id}", summary="删除网站导航分类")
-    @permission("content:websiteCategory:delete")
+    @router.delete("/{category_id}", summary="删除网站导航分类")
+    @permission("websiteCategory:delete")
     async def delete_website_category(self, category_id: int) -> Response:
         """
         删除网站导航分类。

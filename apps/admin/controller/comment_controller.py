@@ -8,7 +8,7 @@ from apps.admin.vo.comment_vo import AdminCommentQueryVO, AdminCommentStatusVO, 
 from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 
-router = APIRouter(prefix="/content", tags=["后台内容管理"])
+router = APIRouter(prefix="/comment", tags=["后台评论管理"])
 
 
 @Controller(router)
@@ -17,8 +17,8 @@ class AdminCommentController:
 
     admin_comment_service: AdminCommentService = Autowired()
 
-    @router.get("/comment/list", summary="分页查询评论")
-    @permission("content:comment:query")
+    @router.get("/list", summary="分页查询评论")
+    @permission("comment:query")
     async def list_comments(self, query_vo: AdminCommentQueryVO = Depends()) -> Response:
         """
         分页查询评论。
@@ -29,8 +29,8 @@ class AdminCommentController:
         ret = await self.admin_comment_service.list_comments(query_vo)
         return ResponseUtil.success(ret)
 
-    @router.get("/comment/{comment_id}", summary="查询评论详情")
-    @permission("content:comment:query")
+    @router.get("/{comment_id}", summary="查询评论详情")
+    @permission("comment:query")
     async def get_comment(self, comment_id: int) -> Response:
         """
         查询评论详情。
@@ -41,8 +41,8 @@ class AdminCommentController:
         ret = await self.admin_comment_service.get_comment(comment_id)
         return ResponseUtil.success(ret)
 
-    @router.put("/comment/{comment_id}", summary="更新评论")
-    @permission("content:comment:update")
+    @router.put("/{comment_id}", summary="更新评论")
+    @permission("comment:update")
     async def update_comment(self, comment_id: int, comment_vo: AdminCommentUpdateVO = Body()) -> Response:
         """
         更新评论。
@@ -54,8 +54,8 @@ class AdminCommentController:
         ret = await self.admin_comment_service.update_comment(comment_id, comment_vo)
         return ResponseUtil.success(ret)
 
-    @router.put("/comment/{comment_id}/status", summary="更新评论状态")
-    @permission("content:comment:status")
+    @router.put("/{comment_id}/status", summary="更新评论状态")
+    @permission("comment:status")
     async def update_comment_status(self, comment_id: int, status_vo: AdminCommentStatusVO = Body()) -> Response:
         """
         更新评论状态。
@@ -67,8 +67,8 @@ class AdminCommentController:
         ret = await self.admin_comment_service.update_comment_status(comment_id, status_vo)
         return ResponseUtil.success(ret)
 
-    @router.delete("/comment/{comment_id}", summary="删除评论")
-    @permission("content:comment:delete")
+    @router.delete("/{comment_id}", summary="删除评论")
+    @permission("comment:delete")
     async def delete_comment(self, comment_id: int) -> Response:
         """
         删除评论。

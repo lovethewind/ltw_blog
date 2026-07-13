@@ -9,7 +9,7 @@ from apps.admin.vo.status_vo import AdminCheckStatusVO
 from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 
-router = APIRouter(prefix="/content", tags=["后台内容管理"])
+router = APIRouter(prefix="/link", tags=["后台友链管理"])
 
 
 @Controller(router)
@@ -18,8 +18,8 @@ class AdminLinkController:
 
     admin_link_service: AdminLinkService = Autowired()
 
-    @router.get("/link/list", summary="分页查询友链")
-    @permission("content:link:query")
+    @router.get("/list", summary="分页查询友链")
+    @permission("link:query")
     async def list_links(self, query_vo: AdminLinkQueryVO = Depends()) -> Response:
         """
         分页查询友链。
@@ -30,8 +30,8 @@ class AdminLinkController:
         ret = await self.admin_link_service.list_links(query_vo)
         return ResponseUtil.success(ret)
 
-    @router.get("/link/{link_id}", summary="查询友链详情")
-    @permission("content:link:query")
+    @router.get("/{link_id}", summary="查询友链详情")
+    @permission("link:query")
     async def get_link(self, link_id: int) -> Response:
         """
         查询友链详情。
@@ -42,8 +42,8 @@ class AdminLinkController:
         ret = await self.admin_link_service.get_link(link_id)
         return ResponseUtil.success(ret)
 
-    @router.post("/link", summary="创建友链")
-    @permission("content:link:create")
+    @router.post("/create", summary="创建友链")
+    @permission("link:create")
     async def create_link(self, link_vo: AdminLinkCreateVO = Body()) -> Response:
         """
         创建友链。
@@ -54,8 +54,8 @@ class AdminLinkController:
         ret = await self.admin_link_service.create_link(link_vo)
         return ResponseUtil.success(ret)
 
-    @router.put("/link/{link_id}", summary="更新友链")
-    @permission("content:link:update")
+    @router.put("/{link_id}", summary="更新友链")
+    @permission("link:update")
     async def update_link(self, link_id: int, link_vo: AdminLinkUpdateVO = Body()) -> Response:
         """
         更新友链。
@@ -67,8 +67,8 @@ class AdminLinkController:
         ret = await self.admin_link_service.update_link(link_id, link_vo)
         return ResponseUtil.success(ret)
 
-    @router.put("/link/{link_id}/status", summary="更新友链状态")
-    @permission("content:link:status")
+    @router.put("/{link_id}/status", summary="更新友链状态")
+    @permission("link:status")
     async def update_link_status(self, link_id: int, status_vo: AdminCheckStatusVO = Body()) -> Response:
         """
         更新友链状态。
@@ -80,8 +80,8 @@ class AdminLinkController:
         ret = await self.admin_link_service.update_link_status(link_id, status_vo)
         return ResponseUtil.success(ret)
 
-    @router.delete("/link/{link_id}", summary="删除友链")
-    @permission("content:link:delete")
+    @router.delete("/{link_id}", summary="删除友链")
+    @permission("link:delete")
     async def delete_link(self, link_id: int) -> Response:
         """
         删除友链。

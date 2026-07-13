@@ -9,7 +9,7 @@ from apps.admin.vo.status_vo import AdminCheckStatusVO
 from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 
-router = APIRouter(prefix="/content", tags=["后台内容管理"])
+router = APIRouter(prefix="/picture", tags=["后台图片管理"])
 
 
 @Controller(router)
@@ -18,8 +18,8 @@ class AdminPictureController:
 
     admin_picture_service: AdminPictureService = Autowired()
 
-    @router.get("/picture/list", summary="分页查询图片")
-    @permission("content:picture:query")
+    @router.get("/list", summary="分页查询图片")
+    @permission("picture:query")
     async def list_pictures(self, query_vo: AdminPictureQueryVO = Depends()) -> Response:
         """
         分页查询图片。
@@ -30,8 +30,8 @@ class AdminPictureController:
         ret = await self.admin_picture_service.list_pictures(query_vo)
         return ResponseUtil.success(ret)
 
-    @router.get("/picture/{picture_id}", summary="查询图片详情")
-    @permission("content:picture:query")
+    @router.get("/{picture_id}", summary="查询图片详情")
+    @permission("picture:query")
     async def get_picture(self, picture_id: int) -> Response:
         """
         查询图片详情。
@@ -42,8 +42,8 @@ class AdminPictureController:
         ret = await self.admin_picture_service.get_picture(picture_id)
         return ResponseUtil.success(ret)
 
-    @router.post("/picture", summary="创建图片")
-    @permission("content:picture:create")
+    @router.post("/create", summary="创建图片")
+    @permission("picture:create")
     async def create_picture(self, picture_vo: AdminPictureCreateVO = Body()) -> Response:
         """
         创建图片。
@@ -54,8 +54,8 @@ class AdminPictureController:
         ret = await self.admin_picture_service.create_picture(picture_vo)
         return ResponseUtil.success(ret)
 
-    @router.put("/picture/{picture_id}", summary="更新图片")
-    @permission("content:picture:update")
+    @router.put("/{picture_id}", summary="更新图片")
+    @permission("picture:update")
     async def update_picture(self, picture_id: int, picture_vo: AdminPictureUpdateVO = Body()) -> Response:
         """
         更新图片。
@@ -67,8 +67,8 @@ class AdminPictureController:
         ret = await self.admin_picture_service.update_picture(picture_id, picture_vo)
         return ResponseUtil.success(ret)
 
-    @router.put("/picture/{picture_id}/status", summary="更新图片状态")
-    @permission("content:picture:status")
+    @router.put("/{picture_id}/status", summary="更新图片状态")
+    @permission("picture:status")
     async def update_picture_status(self, picture_id: int, status_vo: AdminCheckStatusVO = Body()) -> Response:
         """
         更新图片状态。
@@ -80,8 +80,8 @@ class AdminPictureController:
         ret = await self.admin_picture_service.update_picture_status(picture_id, status_vo)
         return ResponseUtil.success(ret)
 
-    @router.delete("/picture/{picture_id}", summary="删除图片")
-    @permission("content:picture:delete")
+    @router.delete("/{picture_id}", summary="删除图片")
+    @permission("picture:delete")
     async def delete_picture(self, picture_id: int) -> Response:
         """
         删除图片。

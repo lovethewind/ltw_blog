@@ -13,7 +13,7 @@ from apps.admin.vo.article_vo import (
 from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 
-router = APIRouter(prefix="/content", tags=["后台内容管理"])
+router = APIRouter(prefix="/article", tags=["后台文章管理"])
 
 
 @Controller(router)
@@ -22,8 +22,8 @@ class AdminArticleController:
 
     admin_article_service: AdminArticleService = Autowired()
 
-    @router.get("/article/list", summary="分页查询文章")
-    @permission("content:article:query")
+    @router.get("/list", summary="分页查询文章")
+    @permission("article:query")
     async def list_articles(self, query_vo: AdminArticleQueryVO = Depends()) -> Response:
         """
         分页查询文章。
@@ -34,8 +34,8 @@ class AdminArticleController:
         ret = await self.admin_article_service.list_articles(query_vo)
         return ResponseUtil.success(ret)
 
-    @router.get("/article/{article_id}", summary="查询文章详情")
-    @permission("content:article:query")
+    @router.get("/{article_id}", summary="查询文章详情")
+    @permission("article:query")
     async def get_article(self, article_id: int) -> Response:
         """
         查询文章详情。
@@ -46,8 +46,8 @@ class AdminArticleController:
         ret = await self.admin_article_service.get_article(article_id)
         return ResponseUtil.success(ret)
 
-    @router.post("/article", summary="创建文章")
-    @permission("content:article:create")
+    @router.post("/create", summary="创建文章")
+    @permission("article:create")
     async def create_article(self, article_vo: AdminArticleCreateVO = Body()) -> Response:
         """
         创建文章。
@@ -58,8 +58,8 @@ class AdminArticleController:
         ret = await self.admin_article_service.create_article(article_vo)
         return ResponseUtil.success(ret)
 
-    @router.put("/article/{article_id}", summary="更新文章")
-    @permission("content:article:update")
+    @router.put("/{article_id}", summary="更新文章")
+    @permission("article:update")
     async def update_article(self, article_id: int, article_vo: AdminArticleUpdateVO = Body()) -> Response:
         """
         更新文章。
@@ -71,8 +71,8 @@ class AdminArticleController:
         ret = await self.admin_article_service.update_article(article_id, article_vo)
         return ResponseUtil.success(ret)
 
-    @router.put("/article/{article_id}/status", summary="更新文章状态")
-    @permission("content:article:publish")
+    @router.put("/{article_id}/status", summary="更新文章状态")
+    @permission("article:publish")
     async def update_article_status(self, article_id: int, status_vo: AdminArticleStatusVO = Body()) -> Response:
         """
         更新文章状态。
@@ -84,8 +84,8 @@ class AdminArticleController:
         ret = await self.admin_article_service.update_article_status(article_id, status_vo)
         return ResponseUtil.success(ret)
 
-    @router.delete("/article/{article_id}", summary="删除文章")
-    @permission("content:article:delete")
+    @router.delete("/{article_id}", summary="删除文章")
+    @permission("article:delete")
     async def delete_article(self, article_id: int) -> Response:
         """
         删除文章。

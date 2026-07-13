@@ -13,7 +13,7 @@ from apps.admin.vo.status_vo import AdminCheckStatusVO
 from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 
-router = APIRouter(prefix="/content", tags=["后台内容管理"])
+router = APIRouter(prefix="/picture/album", tags=["后台相册管理"])
 
 
 @Controller(router)
@@ -22,8 +22,8 @@ class AdminPictureAlbumController:
 
     admin_picture_album_service: AdminPictureAlbumService = Autowired()
 
-    @router.get("/picture/album/list", summary="分页查询图册")
-    @permission("content:pictureAlbum:query")
+    @router.get("/list", summary="分页查询图册")
+    @permission("pictureAlbum:query")
     async def list_picture_albums(self, query_vo: AdminPictureAlbumQueryVO = Depends()) -> Response:
         """
         分页查询图册。
@@ -34,8 +34,8 @@ class AdminPictureAlbumController:
         ret = await self.admin_picture_album_service.list_picture_albums(query_vo)
         return ResponseUtil.success(ret)
 
-    @router.get("/picture/album/{album_id}", summary="查询图册详情")
-    @permission("content:pictureAlbum:query")
+    @router.get("/{album_id}", summary="查询图册详情")
+    @permission("pictureAlbum:query")
     async def get_picture_album(self, album_id: int) -> Response:
         """
         查询图册详情。
@@ -46,8 +46,8 @@ class AdminPictureAlbumController:
         ret = await self.admin_picture_album_service.get_picture_album(album_id)
         return ResponseUtil.success(ret)
 
-    @router.post("/picture/album", summary="创建图册")
-    @permission("content:pictureAlbum:create")
+    @router.post("/create", summary="创建图册")
+    @permission("pictureAlbum:create")
     async def create_picture_album(self, album_vo: AdminPictureAlbumCreateVO = Body()) -> Response:
         """
         创建图册。
@@ -58,8 +58,8 @@ class AdminPictureAlbumController:
         ret = await self.admin_picture_album_service.create_picture_album(album_vo)
         return ResponseUtil.success(ret)
 
-    @router.put("/picture/album/{album_id}", summary="更新图册")
-    @permission("content:pictureAlbum:update")
+    @router.put("/{album_id}", summary="更新图册")
+    @permission("pictureAlbum:update")
     async def update_picture_album(self, album_id: int, album_vo: AdminPictureAlbumUpdateVO = Body()) -> Response:
         """
         更新图册。
@@ -71,8 +71,8 @@ class AdminPictureAlbumController:
         ret = await self.admin_picture_album_service.update_picture_album(album_id, album_vo)
         return ResponseUtil.success(ret)
 
-    @router.put("/picture/album/{album_id}/status", summary="更新图册状态")
-    @permission("content:pictureAlbum:status")
+    @router.put("/{album_id}/status", summary="更新图册状态")
+    @permission("pictureAlbum:status")
     async def update_picture_album_status(self, album_id: int, status_vo: AdminCheckStatusVO = Body()) -> Response:
         """
         更新图册状态。
@@ -84,8 +84,8 @@ class AdminPictureAlbumController:
         ret = await self.admin_picture_album_service.update_picture_album_status(album_id, status_vo)
         return ResponseUtil.success(ret)
 
-    @router.delete("/picture/album/{album_id}", summary="删除图册")
-    @permission("content:pictureAlbum:delete")
+    @router.delete("/{album_id}", summary="删除图册")
+    @permission("pictureAlbum:delete")
     async def delete_picture_album(self, album_id: int) -> Response:
         """
         删除图册。

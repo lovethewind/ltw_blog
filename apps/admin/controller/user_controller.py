@@ -76,7 +76,7 @@ class AdminUserController:
         return ResponseUtil.success(ret)
 
     @router.get("/list", summary="分页查询后台用户")
-    @permission("system:user:query")
+    @permission("user:query")
     async def list_users(self, query_vo: AdminUserQueryVO = Depends()) -> Response:
         """
         分页查询后台用户。
@@ -88,7 +88,7 @@ class AdminUserController:
         return ResponseUtil.success(ret)
 
     @router.get("/{user_id}", summary="获取后台用户详情")
-    @permission("system:user:query")
+    @permission("user:query")
     async def get_user(self, user_id: int) -> Response:
         """
         获取后台用户详情。
@@ -100,7 +100,7 @@ class AdminUserController:
         return ResponseUtil.success(ret)
 
     @router.post("/", summary="创建后台用户")
-    @permission("system:user:create")
+    @permission("user:create")
     async def create_user(self, user_vo: AdminUserCreateVO = Body()) -> Response:
         """
         创建后台用户。
@@ -112,7 +112,7 @@ class AdminUserController:
         return ResponseUtil.success(ret)
 
     @router.put("/{user_id}", summary="更新后台用户")
-    @permission("system:user:update")
+    @permission("user:update")
     async def update_user(self, user_id: int, user_vo: AdminUserUpdateVO = Body()) -> Response:
         """
         更新后台用户。
@@ -125,7 +125,7 @@ class AdminUserController:
         return ResponseUtil.success(ret)
 
     @router.delete("/{user_id}", summary="删除后台用户")
-    @permission("system:user:delete")
+    @permission("user:delete")
     async def delete_user(self, user_id: int) -> Response:
         """
         删除后台用户。
@@ -137,7 +137,7 @@ class AdminUserController:
         return ResponseUtil.success()
 
     @router.get("/{user_id}/roles", summary="获取后台用户角色")
-    @permission("system:user:role")
+    @permission("user:role")
     async def get_user_role_ids(self, user_id: int) -> Response:
         """
         获取后台用户角色。
@@ -149,7 +149,7 @@ class AdminUserController:
         return ResponseUtil.success(ret)
 
     @router.put("/{user_id}/roles", summary="更新后台用户角色")
-    @permission("system:user:role")
+    @permission("user:role")
     async def update_user_roles(self, user_id: int, user_role_vo: AdminUserRoleUpdateVO = Body()) -> Response:
         """
         更新后台用户角色。

@@ -9,7 +9,7 @@ from apps.admin.vo.website_vo import AdminWebsiteCreateVO, AdminWebsiteQueryVO, 
 from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 
-router = APIRouter(prefix="/content", tags=["后台内容管理"])
+router = APIRouter(prefix="/website", tags=["后台网站导航管理"])
 
 
 @Controller(router)
@@ -18,8 +18,8 @@ class AdminWebsiteController:
 
     admin_website_service: AdminWebsiteService = Autowired()
 
-    @router.get("/website/list", summary="分页查询网站导航")
-    @permission("content:website:query")
+    @router.get("/list", summary="分页查询网站导航")
+    @permission("website:query")
     async def list_websites(self, query_vo: AdminWebsiteQueryVO = Depends()) -> Response:
         """
         分页查询网站导航。
@@ -30,8 +30,8 @@ class AdminWebsiteController:
         ret = await self.admin_website_service.list_websites(query_vo)
         return ResponseUtil.success(ret)
 
-    @router.get("/website/{website_id}", summary="查询网站导航详情")
-    @permission("content:website:query")
+    @router.get("/{website_id}", summary="查询网站导航详情")
+    @permission("website:query")
     async def get_website(self, website_id: int) -> Response:
         """
         查询网站导航详情。
@@ -42,8 +42,8 @@ class AdminWebsiteController:
         ret = await self.admin_website_service.get_website(website_id)
         return ResponseUtil.success(ret)
 
-    @router.post("/website", summary="创建网站导航")
-    @permission("content:website:create")
+    @router.post("/create", summary="创建网站导航")
+    @permission("website:create")
     async def create_website(self, website_vo: AdminWebsiteCreateVO = Body()) -> Response:
         """
         创建网站导航。
@@ -54,8 +54,8 @@ class AdminWebsiteController:
         ret = await self.admin_website_service.create_website(website_vo)
         return ResponseUtil.success(ret)
 
-    @router.put("/website/{website_id}", summary="更新网站导航")
-    @permission("content:website:update")
+    @router.put("/{website_id}", summary="更新网站导航")
+    @permission("website:update")
     async def update_website(self, website_id: int, website_vo: AdminWebsiteUpdateVO = Body()) -> Response:
         """
         更新网站导航。
@@ -67,8 +67,8 @@ class AdminWebsiteController:
         ret = await self.admin_website_service.update_website(website_id, website_vo)
         return ResponseUtil.success(ret)
 
-    @router.put("/website/{website_id}/status", summary="更新网站导航状态")
-    @permission("content:website:status")
+    @router.put("/{website_id}/status", summary="更新网站导航状态")
+    @permission("website:status")
     async def update_website_status(self, website_id: int, status_vo: AdminCheckStatusVO = Body()) -> Response:
         """
         更新网站导航状态。
@@ -80,8 +80,8 @@ class AdminWebsiteController:
         ret = await self.admin_website_service.update_website_status(website_id, status_vo)
         return ResponseUtil.success(ret)
 
-    @router.delete("/website/{website_id}", summary="删除网站导航")
-    @permission("content:website:delete")
+    @router.delete("/{website_id}", summary="删除网站导航")
+    @permission("website:delete")
     async def delete_website(self, website_id: int) -> Response:
         """
         删除网站导航。

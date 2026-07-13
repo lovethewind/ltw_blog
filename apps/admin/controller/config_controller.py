@@ -8,7 +8,7 @@ from apps.admin.vo.config_vo import AdminConfigCreateVO, AdminConfigQueryVO, Adm
 from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 
-router = APIRouter(prefix="/content", tags=["后台内容管理"])
+router = APIRouter(prefix="/config", tags=["后台配置管理"])
 
 
 @Controller(router)
@@ -17,8 +17,8 @@ class AdminConfigController:
 
     admin_config_service: AdminConfigService = Autowired()
 
-    @router.get("/config/list", summary="分页查询配置")
-    @permission("content:config:query")
+    @router.get("/list", summary="分页查询配置")
+    @permission("config:query")
     async def list_configs(self, query_vo: AdminConfigQueryVO = Depends()) -> Response:
         """
         分页查询配置。
@@ -29,8 +29,8 @@ class AdminConfigController:
         ret = await self.admin_config_service.list_configs(query_vo)
         return ResponseUtil.success(ret)
 
-    @router.get("/config/{config_id}", summary="查询配置详情")
-    @permission("content:config:query")
+    @router.get("/{config_id}", summary="查询配置详情")
+    @permission("config:query")
     async def get_config(self, config_id: int) -> Response:
         """
         查询配置详情。
@@ -41,8 +41,8 @@ class AdminConfigController:
         ret = await self.admin_config_service.get_config(config_id)
         return ResponseUtil.success(ret)
 
-    @router.post("/config", summary="创建配置")
-    @permission("content:config:create")
+    @router.post("/create", summary="创建配置")
+    @permission("config:create")
     async def create_config(self, config_vo: AdminConfigCreateVO = Body()) -> Response:
         """
         创建配置。
@@ -53,8 +53,8 @@ class AdminConfigController:
         ret = await self.admin_config_service.create_config(config_vo)
         return ResponseUtil.success(ret)
 
-    @router.put("/config/{config_id}", summary="更新配置")
-    @permission("content:config:update")
+    @router.put("/{config_id}", summary="更新配置")
+    @permission("config:update")
     async def update_config(self, config_id: int, config_vo: AdminConfigUpdateVO = Body()) -> Response:
         """
         更新配置。
@@ -66,8 +66,8 @@ class AdminConfigController:
         ret = await self.admin_config_service.update_config(config_id, config_vo)
         return ResponseUtil.success(ret)
 
-    @router.delete("/config/{config_id}", summary="删除配置")
-    @permission("content:config:delete")
+    @router.delete("/{config_id}", summary="删除配置")
+    @permission("config:delete")
     async def delete_config(self, config_id: int) -> Response:
         """
         删除配置。

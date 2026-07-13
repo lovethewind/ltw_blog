@@ -8,7 +8,7 @@ from apps.admin.vo.job_vo import AdminJobCreateVO, AdminJobQueryVO, AdminJobStat
 from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 
-router = APIRouter(prefix="/operation", tags=["后台运营管理"])
+router = APIRouter(prefix="/job", tags=["后台定时任务管理"])
 
 
 @Controller(router)
@@ -17,8 +17,8 @@ class AdminJobController:
 
     admin_job_service: AdminJobService = Autowired()
 
-    @router.get("/job/list", summary="分页查询定时任务")
-    @permission("operation:job:query")
+    @router.get("/list", summary="分页查询定时任务")
+    @permission("job:query")
     async def list_jobs(self, query_vo: AdminJobQueryVO = Depends()) -> Response:
         """
         分页查询定时任务。
@@ -29,8 +29,8 @@ class AdminJobController:
         ret = await self.admin_job_service.list_jobs(query_vo)
         return ResponseUtil.success(ret)
 
-    @router.get("/job/{job_id}", summary="查询定时任务详情")
-    @permission("operation:job:query")
+    @router.get("/{job_id}", summary="查询定时任务详情")
+    @permission("job:query")
     async def get_job(self, job_id: int) -> Response:
         """
         查询定时任务详情。
@@ -41,8 +41,8 @@ class AdminJobController:
         ret = await self.admin_job_service.get_job(job_id)
         return ResponseUtil.success(ret)
 
-    @router.post("/job", summary="创建定时任务")
-    @permission("operation:job:create")
+    @router.post("/create", summary="创建定时任务")
+    @permission("job:create")
     async def create_job(self, job_vo: AdminJobCreateVO = Body()) -> Response:
         """
         创建定时任务。
@@ -53,8 +53,8 @@ class AdminJobController:
         ret = await self.admin_job_service.create_job(job_vo)
         return ResponseUtil.success(ret)
 
-    @router.put("/job/{job_id}", summary="更新定时任务")
-    @permission("operation:job:update")
+    @router.put("/{job_id}", summary="更新定时任务")
+    @permission("job:update")
     async def update_job(self, job_id: int, job_vo: AdminJobUpdateVO = Body()) -> Response:
         """
         更新定时任务。
@@ -66,8 +66,8 @@ class AdminJobController:
         ret = await self.admin_job_service.update_job(job_id, job_vo)
         return ResponseUtil.success(ret)
 
-    @router.put("/job/{job_id}/status", summary="更新定时任务状态")
-    @permission("operation:job:status")
+    @router.put("/{job_id}/status", summary="更新定时任务状态")
+    @permission("job:status")
     async def update_job_status(self, job_id: int, status_vo: AdminJobStatusVO = Body()) -> Response:
         """
         更新定时任务状态。
@@ -79,8 +79,8 @@ class AdminJobController:
         ret = await self.admin_job_service.update_job_status(job_id, status_vo)
         return ResponseUtil.success(ret)
 
-    @router.delete("/job/{job_id}", summary="删除定时任务")
-    @permission("operation:job:delete")
+    @router.delete("/{job_id}", summary="删除定时任务")
+    @permission("job:delete")
     async def delete_job(self, job_id: int) -> Response:
         """
         删除定时任务。

@@ -13,7 +13,7 @@ from apps.admin.vo.user_restriction_vo import (
 from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 
-router = APIRouter(prefix="/operation", tags=["后台运营管理"])
+router = APIRouter(prefix="/restriction", tags=["后台用户限制管理"])
 
 
 @Controller(router)
@@ -22,8 +22,8 @@ class AdminUserRestrictionController:
 
     admin_user_restriction_service: AdminUserRestrictionService = Autowired()
 
-    @router.get("/restriction/list", summary="分页查询用户限制")
-    @permission("operation:restriction:query")
+    @router.get("/list", summary="分页查询用户限制")
+    @permission("restriction:query")
     async def list_user_restrictions(self, query_vo: AdminUserRestrictionQueryVO = Depends()) -> Response:
         """
         分页查询用户限制。
@@ -34,8 +34,8 @@ class AdminUserRestrictionController:
         ret = await self.admin_user_restriction_service.list_user_restrictions(query_vo)
         return ResponseUtil.success(ret)
 
-    @router.post("/restriction", summary="创建用户限制")
-    @permission("operation:restriction:create")
+    @router.post("/create", summary="创建用户限制")
+    @permission("restriction:create")
     async def create_user_restriction(self, restriction_vo: AdminUserRestrictionCreateVO = Body()) -> Response:
         """
         创建用户限制。
@@ -46,8 +46,8 @@ class AdminUserRestrictionController:
         ret = await self.admin_user_restriction_service.create_user_restriction(restriction_vo)
         return ResponseUtil.success(ret)
 
-    @router.put("/restriction/{restriction_id}", summary="更新用户限制")
-    @permission("operation:restriction:update")
+    @router.put("/{restriction_id}", summary="更新用户限制")
+    @permission("restriction:update")
     async def update_user_restriction(
         self, restriction_id: int, restriction_vo: AdminUserRestrictionUpdateVO = Body()
     ) -> Response:
@@ -61,8 +61,8 @@ class AdminUserRestrictionController:
         ret = await self.admin_user_restriction_service.update_user_restriction(restriction_id, restriction_vo)
         return ResponseUtil.success(ret)
 
-    @router.put("/restriction/{restriction_id}/cancel", summary="解除用户限制")
-    @permission("operation:restriction:cancel")
+    @router.put("/{restriction_id}/cancel", summary="解除用户限制")
+    @permission("restriction:cancel")
     async def cancel_user_restriction(
         self, restriction_id: int, cancel_vo: AdminUserRestrictionCancelVO = Body()
     ) -> Response:
@@ -76,8 +76,8 @@ class AdminUserRestrictionController:
         ret = await self.admin_user_restriction_service.cancel_user_restriction(restriction_id, cancel_vo)
         return ResponseUtil.success(ret)
 
-    @router.delete("/restriction/{restriction_id}", summary="删除用户限制")
-    @permission("operation:restriction:delete")
+    @router.delete("/{restriction_id}", summary="删除用户限制")
+    @permission("restriction:delete")
     async def delete_user_restriction(self, restriction_id: int) -> Response:
         """
         删除用户限制。

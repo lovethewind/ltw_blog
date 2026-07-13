@@ -99,6 +99,15 @@ class AdminMenuDao:
         """
         return bool(await db.scalar(select(func.count(Menu.id)).where(Menu.parent_id == menu_id)))
 
+    async def list_child_ids(self, parent_id: int) -> list[int]:
+        """
+        查询直接子菜单 ID 列表。
+
+        :param parent_id: 父菜单 ID。
+        :return: 直接子菜单 ID 列表。
+        """
+        return list(await db.model_all(select(Menu.id).where(Menu.parent_id == parent_id)))
+
     async def delete_menu(self, menu_id: int) -> None:
         """
         删除菜单及角色菜单关联。
@@ -109,6 +118,19 @@ class AdminMenuDao:
         async with db.atomic() as session:
             await session.execute(delete(RoleMenu).where(RoleMenu.menu_id == menu_id))
             await session.execute(delete(Menu).where(Menu.id == menu_id))
+
+    async def delete_menus(self, menu_ids: list[int]) -> None:
+        """
+        在同一事务中删除菜单及角色菜单关联。
+
+        :param menu_ids: 待删除菜单 ID 列表。
+        :return: None。
+        """
+        if not menu_ids:
+            return
+        async with db.atomic() as session:
+            await session.execute(delete(RoleMenu).where(RoleMenu.menu_id.in_(menu_ids)))
+            await session.execute(delete(Menu).where(Menu.id.in_(menu_ids)))
 
     async def list_roles(self) -> list[Role]:
         """

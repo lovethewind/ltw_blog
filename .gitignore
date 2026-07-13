@@ -164,6 +164,7 @@ cython_debug/
 .idea/
 logs
 tests
+docs
 nacos-data
 AGENTS.md
 CLAUDE.md

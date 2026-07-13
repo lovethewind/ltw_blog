@@ -26,7 +26,7 @@ class AdminMenuController:
     admin_menu_service: AdminMenuService = Autowired()
 
     @router.get("/tree", summary="查询后台菜单树")
-    @permission("system:menu:query")
+    @permission("menu:query")
     async def tree(self, active_only: bool = False) -> Response:
         """
         查询后台菜单树。
@@ -38,7 +38,7 @@ class AdminMenuController:
         return ResponseUtil.success(ret)
 
     @router.get("/role/list", summary="查询后台角色列表")
-    @permission("system:role:query")
+    @permission("role:query")
     async def list_roles(self) -> Response:
         """
         查询后台角色列表。
@@ -49,7 +49,7 @@ class AdminMenuController:
         return ResponseUtil.success(ret)
 
     @router.post("/role", summary="创建后台角色")
-    @permission("system:role:create")
+    @permission("role:create")
     async def create_role(self, role_vo: AdminRoleCreateVO = Body()) -> Response:
         """
         创建后台角色。
@@ -61,7 +61,7 @@ class AdminMenuController:
         return ResponseUtil.success(ret)
 
     @router.put("/role/{role_id}", summary="更新后台角色")
-    @permission("system:role:update")
+    @permission("role:update")
     async def update_role(self, role_id: int, role_vo: AdminRoleUpdateVO = Body()) -> Response:
         """
         更新后台角色。
@@ -74,7 +74,7 @@ class AdminMenuController:
         return ResponseUtil.success(ret)
 
     @router.delete("/role/{role_id}", summary="删除后台角色")
-    @permission("system:role:delete")
+    @permission("role:delete")
     async def delete_role(self, role_id: int) -> Response:
         """
         删除后台角色。
@@ -86,7 +86,7 @@ class AdminMenuController:
         return ResponseUtil.success()
 
     @router.get("/role/{role_id}/menus", summary="查询角色菜单授权")
-    @permission("system:role:auth")
+    @permission("role:auth")
     async def get_role_menu_ids(self, role_id: int) -> Response:
         """
         查询角色菜单授权。
@@ -98,7 +98,7 @@ class AdminMenuController:
         return ResponseUtil.success(ret)
 
     @router.put("/role/{role_id}/menus", summary="更新角色菜单授权")
-    @permission("system:role:auth")
+    @permission("role:auth")
     async def update_role_menus(self, role_id: int, role_menu_vo: AdminRoleMenuUpdateVO = Body()) -> Response:
         """
         更新角色菜单授权。
@@ -111,7 +111,7 @@ class AdminMenuController:
         return ResponseUtil.success()
 
     @router.get("/{menu_id}", summary="查询后台菜单详情")
-    @permission("system:menu:query")
+    @permission("menu:query")
     async def get_menu(self, menu_id: int) -> Response:
         """
         查询后台菜单详情。
@@ -123,7 +123,7 @@ class AdminMenuController:
         return ResponseUtil.success(ret)
 
     @router.post("/", summary="创建后台菜单")
-    @permission("system:menu:create")
+    @permission("menu:create")
     async def create_menu(self, menu_vo: AdminMenuCreateVO = Body()) -> Response:
         """
         创建后台菜单。
@@ -135,7 +135,7 @@ class AdminMenuController:
         return ResponseUtil.success(ret)
 
     @router.put("/{menu_id}", summary="更新后台菜单")
-    @permission("system:menu:update")
+    @permission("menu:update")
     async def update_menu(self, menu_id: int, menu_vo: AdminMenuUpdateVO = Body()) -> Response:
         """
         更新后台菜单。
@@ -148,7 +148,7 @@ class AdminMenuController:
         return ResponseUtil.success(ret)
 
     @router.delete("/{menu_id}", summary="删除后台菜单")
-    @permission("system:menu:delete")
+    @permission("menu:delete")
     async def delete_menu(self, menu_id: int) -> Response:
         """
         删除后台菜单。

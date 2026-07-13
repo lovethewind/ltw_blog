@@ -8,7 +8,7 @@ from apps.admin.vo.notice_vo import AdminNoticeQueryVO, AdminNoticeUpdateVO
 from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 
-router = APIRouter(prefix="/operation", tags=["后台运营管理"])
+router = APIRouter(prefix="/notice", tags=["后台通知管理"])
 
 
 @Controller(router)
@@ -17,8 +17,8 @@ class AdminNoticeController:
 
     admin_notice_service: AdminNoticeService = Autowired()
 
-    @router.get("/notice/list", summary="分页查询通知")
-    @permission("operation:notice:query")
+    @router.get("/list", summary="分页查询通知")
+    @permission("notice:query")
     async def list_notices(self, query_vo: AdminNoticeQueryVO = Depends()) -> Response:
         """
         分页查询通知。
@@ -29,8 +29,8 @@ class AdminNoticeController:
         ret = await self.admin_notice_service.list_notices(query_vo)
         return ResponseUtil.success(ret)
 
-    @router.get("/notice/{notice_id}", summary="查询通知详情")
-    @permission("operation:notice:query")
+    @router.get("/{notice_id}", summary="查询通知详情")
+    @permission("notice:query")
     async def get_notice(self, notice_id: int) -> Response:
         """
         查询通知详情。
@@ -41,8 +41,8 @@ class AdminNoticeController:
         ret = await self.admin_notice_service.get_notice(notice_id)
         return ResponseUtil.success(ret)
 
-    @router.put("/notice/{notice_id}", summary="更新通知")
-    @permission("operation:notice:update")
+    @router.put("/{notice_id}", summary="更新通知")
+    @permission("notice:update")
     async def update_notice(self, notice_id: int, notice_vo: AdminNoticeUpdateVO = Body()) -> Response:
         """
         更新通知。
@@ -54,8 +54,8 @@ class AdminNoticeController:
         ret = await self.admin_notice_service.update_notice(notice_id, notice_vo)
         return ResponseUtil.success(ret)
 
-    @router.delete("/notice/{notice_id}", summary="删除通知")
-    @permission("operation:notice:delete")
+    @router.delete("/{notice_id}", summary="删除通知")
+    @permission("notice:delete")
     async def delete_notice(self, notice_id: int) -> Response:
         """
         删除通知。

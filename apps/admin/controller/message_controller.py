@@ -8,7 +8,7 @@ from apps.admin.vo.message_vo import AdminMessageQueryVO, AdminMessageUpdateVO
 from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
 
-router = APIRouter(prefix="/content", tags=["后台内容管理"])
+router = APIRouter(prefix="/message", tags=["后台留言管理"])
 
 
 @Controller(router)
@@ -17,8 +17,8 @@ class AdminMessageController:
 
     admin_message_service: AdminMessageService = Autowired()
 
-    @router.get("/message/list", summary="分页查询留言")
-    @permission("content:message:query")
+    @router.get("/list", summary="分页查询留言")
+    @permission("message:query")
     async def list_messages(self, query_vo: AdminMessageQueryVO = Depends()) -> Response:
         """
         分页查询留言。
@@ -29,8 +29,8 @@ class AdminMessageController:
         ret = await self.admin_message_service.list_messages(query_vo)
         return ResponseUtil.success(ret)
 
-    @router.get("/message/{message_id}", summary="查询留言详情")
-    @permission("content:message:query")
+    @router.get("/{message_id}", summary="查询留言详情")
+    @permission("message:query")
     async def get_message(self, message_id: int) -> Response:
         """
         查询留言详情。
@@ -41,8 +41,8 @@ class AdminMessageController:
         ret = await self.admin_message_service.get_message(message_id)
         return ResponseUtil.success(ret)
 
-    @router.put("/message/{message_id}", summary="更新留言")
-    @permission("content:message:update")
+    @router.put("/{message_id}", summary="更新留言")
+    @permission("message:update")
     async def update_message(self, message_id: int, message_vo: AdminMessageUpdateVO = Body()) -> Response:
         """
         更新留言。
@@ -54,8 +54,8 @@ class AdminMessageController:
         ret = await self.admin_message_service.update_message(message_id, message_vo)
         return ResponseUtil.success(ret)
 
-    @router.delete("/message/{message_id}", summary="删除留言")
-    @permission("content:message:delete")
+    @router.delete("/{message_id}", summary="删除留言")
+    @permission("message:delete")
     async def delete_message(self, message_id: int) -> Response:
         """
         删除留言。

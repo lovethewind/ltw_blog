@@ -84,14 +84,17 @@ class AdminMenuService:
 
         :param menu_id: 菜单 ID
         :return: None
-        :raises MyException: 菜单不存在或存在子级时抛出
+        :raises MyException: 菜单不存在时抛出
         """
         menu = await self.admin_menu_dao.get_menu_by_id(menu_id)
         if not menu:
             raise MyException(ErrorCode.DATA_NOT_EXISTS)
-        if await self.admin_menu_dao.has_children(menu_id):
-            raise MyException(ErrorCode.MENU_HAS_SUB_ITEM)
-        await self.admin_menu_dao.delete_menu(menu_id)
+        menu_ids = [menu_id]
+        cursor = 0
+        while cursor < len(menu_ids):
+            menu_ids.extend(await self.admin_menu_dao.list_child_ids(menu_ids[cursor]))
+            cursor += 1
+        await self.admin_menu_dao.delete_menus(menu_ids)
 
     async def list_roles(self) -> list[AdminRoleDTO]:
         """
