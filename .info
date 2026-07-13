@@ -1,11 +1,11 @@
 {
   "project": "ltw-blog",
   "version": "0.0.1",
-  "generatedAt": "2026-07-13T14:54:59+08:00",
+  "generatedAt": "2026-07-13T18:50:58+08:00",
   "branch": "master",
-  "sourceCommit": "283ffa43af2b3d805a3ece2171c343ac48e53f56",
-  "sourceCommitShort": "283ffa4",
-  "sourceCommitTime": "2026-07-12T23:13:30+08:00",
-  "sourceCommitSubject": "feat:admin接口文件调整；添加定时任务功能",
+  "sourceCommit": "2df14ae03a2a40d3cbae3dd8488d8f7f2b34dbec",
+  "sourceCommitShort": "2df14ae",
+  "sourceCommitTime": "2026-07-13T18:44:05+08:00",
+  "sourceCommitSubject": "feat:定时任务功能优化",
   "note": "pre-commit 生成；sourceCommit 为提交前 HEAD，不能表示本次提交自己的 hash。"
 }

@@ -1,8 +1,11 @@
-from typing import Any
+from typing import Any, TypeVar
 
 from sqlalchemy import Select, delete, func, select, update
 
+from apps.base.core.sqlalchemy.base_model import BaseModel
 from apps.base.core.sqlalchemy.db_helper import db
+
+T = TypeVar("T", bound=BaseModel)
 
 
 async def _paginate(stmt: Select[tuple[T]], current: int, size: int, *order_by: Any) -> tuple[list[T], int]:
@@ -18,7 +21,7 @@ async def _paginate(stmt: Select[tuple[T]], current: int, size: int, *order_by: 
     offset, limit = db.page(current, size)
     total = await db.scalar(select(func.count()).select_from(stmt.order_by(None).subquery()))
     records = await db.model_all(stmt.order_by(*order_by).offset(offset).limit(limit))
-    return (list(records), int(total or 0))
+    return list(records), int(total or 0)
 
 
 async def _create(model: type[T], data: dict[str, Any]) -> T:

@@ -6,7 +6,6 @@ from typing import Any
 
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED, JobExecutionEvent
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import select
 
 from apps.base.constant.redis_constant import RedisConstant
@@ -15,6 +14,7 @@ from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.job import JobStatusEnum, MisfirePolicyEnum
 from apps.base.models.job import Job
 from apps.base.utils.redis_util import RedisUtil
+from apps.scheduler.core.cron import build_cron_trigger
 from apps.scheduler.core.invoke import invoke_target, resolve_invoke_target
 
 RECONCILE_JOB_ID = "system-job-reconciler"
@@ -186,7 +186,7 @@ class DatabaseScheduler:
             return
         try:
             resolve_invoke_target(job.invoke_target)
-            trigger = CronTrigger.from_crontab(job.cron_expression, timezone=self.timezone)
+            trigger = build_cron_trigger(job.cron_expression, timezone=self.timezone)
             options = build_job_options(job)
             self.scheduler.add_job(
                 self.execute_job,

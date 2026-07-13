@@ -1,7 +1,7 @@
-from apscheduler.triggers.cron import CronTrigger
 from pydantic import Field, field_validator, model_validator
 
 from apps.admin.vo.base_vo import BaseVO
+from apps.scheduler.core.cron import build_cron_trigger
 from apps.scheduler.core.invoke import resolve_invoke_target
 
 
@@ -11,7 +11,7 @@ class JobScheduleValidationMixin:
     @field_validator("cron_expression", check_fields=False)
     @classmethod
     def validate_cron_expression(cls, value: str | None) -> str | None:
-        """校验五段式 Cron 表达式。
+        """校验五段或六段式 Cron 表达式。
 
         :param value: Cron 表达式
         :return: 原 Cron 表达式
@@ -20,7 +20,7 @@ class JobScheduleValidationMixin:
         if value is None:
             return value
         try:
-            CronTrigger.from_crontab(value)
+            build_cron_trigger(value)
         except ValueError as exc:
             raise ValueError("Cron 表达式无效") from exc
         return value
@@ -80,6 +80,7 @@ class AdminJobUpdateVO(JobScheduleValidationMixin, BaseVO):
     misfire_policy: int | None = Field(default=None, ge=1, le=3)
     concurrent: bool | None = None
     status: int | None = Field(default=None, ge=1, le=2)
+    create_user_id: int | None = None
     update_user_id: int | None = None
     description: str | None = Field(default=None, max_length=1000)
 
