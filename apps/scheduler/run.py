@@ -1,9 +1,9 @@
 import asyncio
 import signal
 
-import apps.admin.config.logger_config  # noqa: F401
-from apps.admin.config.server_config import init_container_config
+import apps.scheduler.config.logger_config  # noqa: F401
 from apps.base.core.sqlalchemy.session import close_sqlalchemy_engine, init_sqlalchemy_engine
+from apps.scheduler.config.server_config import init_container_config
 from apps.scheduler.core.scheduler import DatabaseScheduler
 
 

@@ -1,11 +1,11 @@
 {
   "project": "ltw-blog",
   "version": "0.0.1",
-  "generatedAt": "2026-07-14T21:12:19+08:00",
+  "generatedAt": "2026-07-14T22:31:24+08:00",
   "branch": "master",
-  "sourceCommit": "7fc224da61878891e7b76eb9396f0bc5ef3a0b1c",
-  "sourceCommitShort": "7fc224d",
-  "sourceCommitTime": "2026-07-14T20:11:21+08:00",
-  "sourceCommitSubject": "feat: admin添加分析页接口",
+  "sourceCommit": "bc61d8baf45918a27e4cbcb0133700549f7c7084",
+  "sourceCommitShort": "bc61d8b",
+  "sourceCommitTime": "2026-07-14T21:12:19+08:00",
+  "sourceCommitSubject": "fix: 修复获取用户文章数量",
   "note": "pre-commit 生成；sourceCommit 为提交前 HEAD，不能表示本次提交自己的 hash。"
 }

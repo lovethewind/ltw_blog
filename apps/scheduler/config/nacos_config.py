@@ -2,6 +2,6 @@ from apps.base.config.nacos_config import BaseNacosConfig
 from apps.base.core.depend_inject import Component
 
 
-@Component("nacosConfig")
+@Component("schedulerNacosConfig")
 class NacosConfig(BaseNacosConfig):
-    """Web 应用 Nacos 配置客户端。"""
+    """定时任务服务 Nacos 配置客户端。"""
