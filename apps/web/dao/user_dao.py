@@ -1,25 +1,46 @@
+import asyncio
+
 from sqlalchemy import select
 
 from apps.base.core.depend_inject import Component
 from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.user import UserSettingsEnum
-from apps.base.models.user import User, UserSettings
-from apps.web.dto.user_dto import UserCommonInfoDTO
+from apps.base.models.user import User, UserRestriction, UserSettings
+from apps.web.dto.user_dto import (
+    CachedUserInfoDTO,
+    CachedUserRestrictionDTO,
+    CachedUserRestrictionItemDTO,
+)
 
 
 @Component()
 class UserDao:
     common_user_settings = [UserSettingsEnum.ALLOW_VIEW_MY_FOLLOW, UserSettingsEnum.ALLOW_VIEW_MY_COLLECT]
 
-    async def get_user_info(self, user_id: int) -> UserCommonInfoDTO:
+    async def get_user_info(self, user_id: int) -> CachedUserInfoDTO:
         """
         获取用户基本信息。
 
         :param user_id: 用户 ID。
-        :return: 用户公开信息。
+        :return: 包含公开设置和未解除限制的内部缓存用户信息。
         """
-        user = await db.model_first(select(User).where(User.id == user_id))
-        return UserCommonInfoDTO.model_validate(user, from_attributes=True)
+        user, restrictions, user_settings = await asyncio.gather(
+            db.model_first(select(User).where(User.id == user_id)),
+            db.model_all(
+                select(UserRestriction).where(
+                    UserRestriction.user_id == user_id,
+                    UserRestriction.is_cancel.is_(False),
+                )
+            ),
+            self.get_user_common_settings(user_id),
+        )
+        dto = CachedUserInfoDTO.model_validate(user, from_attributes=True)
+        restriction_dto = CachedUserRestrictionDTO(
+            items=CachedUserRestrictionItemDTO.bulk_model_validate(list(restrictions))
+        )
+        dto.user_restrictions = restriction_dto
+        dto.user_settings = user_settings
+        return dto
 
     async def get_user_common_settings(self, user_id: int) -> dict[UserSettingsEnum, str | bool]:
         """

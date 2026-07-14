@@ -12,6 +12,7 @@ from kafka.admin import NewTopic
 from kafka.errors import TopicAlreadyExistsError
 
 from apps.base.core.depend_inject import Autowired, Component, Value, logger
+from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.models.notice import Notice
 from apps.base.utils.email_util import EmailUtil
 from apps.base.utils.sms_util import SmsUtil
@@ -203,4 +204,4 @@ class AsyncTask:
 
     @classmethod
     async def send_notice(cls, message: dict[str, Any]):
-        await Notice.create(**message)
+        await db.create(Notice(**message), return_value=False)

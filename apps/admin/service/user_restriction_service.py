@@ -3,6 +3,7 @@ from datetime import datetime
 from apps.admin.dao.user_restriction_dao import AdminUserRestrictionDao
 from apps.admin.dto.user_restriction_dto import AdminUserRestrictionDTO
 from apps.admin.service.base_service import AdminBaseService
+from apps.admin.utils.redis_util import AdminRedisUtil
 from apps.admin.vo.user_restriction_vo import (
     AdminUserRestrictionCancelVO,
     AdminUserRestrictionCreateVO,
@@ -19,6 +20,7 @@ class AdminUserRestrictionService(AdminBaseService):
     """后台用户限制服务。"""
 
     admin_user_restriction_dao: AdminUserRestrictionDao = Autowired()
+    redis_util: AdminRedisUtil = Autowired()
 
     async def list_user_restrictions(self, query_vo: AdminUserRestrictionQueryVO) -> dict:
         """
@@ -30,7 +32,7 @@ class AdminUserRestrictionService(AdminBaseService):
         restrictions, total = await self.admin_user_restriction_dao.list_user_restrictions(
             query_vo.current, query_vo.size, query_vo.user_id, query_vo.restrict_type, query_vo.is_cancel
         )
-        records = [AdminUserRestrictionDTO.model_validate(restriction) for restriction in restrictions]
+        records = AdminUserRestrictionDTO.bulk_model_validate(restrictions)
         return self._page_result(query_vo.current, query_vo.size, total, records)
 
     async def create_user_restriction(self, restriction_vo: AdminUserRestrictionCreateVO) -> AdminUserRestrictionDTO:
@@ -43,6 +45,7 @@ class AdminUserRestrictionService(AdminBaseService):
         data = restriction_vo.model_dump(exclude_none=True)
         self._normalize_restriction_data(data)
         restriction = await self.admin_user_restriction_dao.create_user_restriction(data)
+        await self.redis_util.User.delete_user_profile_cache(restriction.user_id)
         return AdminUserRestrictionDTO.model_validate(restriction)
 
     async def update_user_restriction(
@@ -62,6 +65,7 @@ class AdminUserRestrictionService(AdminBaseService):
         data = restriction_vo.model_dump(exclude_none=True)
         self._normalize_restriction_data(data)
         restriction = await self.admin_user_restriction_dao.update_user_restriction(restriction, data)
+        await self.redis_util.User.delete_user_profile_cache(restriction.user_id)
         return AdminUserRestrictionDTO.model_validate(restriction)
 
     async def cancel_user_restriction(
@@ -80,6 +84,7 @@ class AdminUserRestrictionService(AdminBaseService):
             raise MyException(ErrorCode.DATA_NOT_EXISTS)
         data = {"is_cancel": True, "cancel_time": datetime.now(), "cancel_reason": cancel_vo.cancel_reason or ""}
         restriction = await self.admin_user_restriction_dao.update_user_restriction(restriction, data)
+        await self.redis_util.User.delete_user_profile_cache(restriction.user_id)
         return AdminUserRestrictionDTO.model_validate(restriction)
 
     async def delete_user_restriction(self, restriction_id: int) -> None:
@@ -94,6 +99,7 @@ class AdminUserRestrictionService(AdminBaseService):
         if not restriction:
             raise MyException(ErrorCode.DATA_NOT_EXISTS)
         await self.admin_user_restriction_dao.delete_user_restriction(restriction_id)
+        await self.redis_util.User.delete_user_profile_cache(restriction.user_id)
 
     def _normalize_restriction_data(self, data: dict[str, object]) -> None:
         """

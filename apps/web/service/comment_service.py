@@ -2,6 +2,7 @@
 # @Author  : frank
 # @File    : comment_service.py
 import asyncio
+from datetime import datetime
 
 from sqlalchemy import Select, func, select, update
 from sqlalchemy.orm import aliased
@@ -11,8 +12,10 @@ from apps.base.core.depend_inject import Autowired, Component
 from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.action import ObjectTypeEnum
 from apps.base.enum.comment import CommentStatusEnum
+from apps.base.enum.error_code import ErrorCode
 from apps.base.enum.notice import NoticeTypeEnum
 from apps.base.enum.user import UserSettingsEnum
+from apps.base.exception.my_exception import MyException
 from apps.base.models.comment import Comment
 from apps.web.core.context_vars import ContextVars
 from apps.web.core.kafka.util import KafkaUtil
@@ -22,7 +25,7 @@ from apps.web.dao.user_dao import UserDao
 from apps.web.dto.chat_dto import WSMessageDTO
 from apps.web.dto.comment_dto import CommentDTO
 from apps.web.dto.notice_dto import NoticeSaveDTO
-from apps.web.dto.user_dto import UserBaseInfoDTO
+from apps.web.dto.user_dto import CachedUserInfoDTO, UserBaseInfoDTO
 from apps.web.utils.redis_util import WebRedisUtil
 from apps.web.utils.ws_util import manager
 from apps.web.vo.comment_vo import CommentAddVO, CommentQueryVO
@@ -136,6 +139,7 @@ class CommentService:
         :return: 新增评论 DTO。
         """
         user_id = ContextVars.token_user_id.get()
+        await self._ensure_comment_allowed(user_id)
         comment = Comment(**comment_add_vo.model_dump())
         comment.user_id = user_id
         comment.status = CommentStatusEnum.PASS
@@ -144,6 +148,19 @@ class CommentService:
         ret = CommentDTO.model_validate(comment, from_attributes=True)
         asyncio.create_task(self._send_notice(user_id, comment_add_vo))
         return ret
+
+    async def _ensure_comment_allowed(self, user_id: int) -> None:
+        """
+        校验用户当前是否允许发表评论。
+
+        :param user_id: 用户 ID。
+        :return: None。
+        :raises MyException: 用户处于生效中的禁言状态时抛出。
+        """
+        user_info = await manager.get_user_info(user_id, CachedUserInfoDTO)
+        restriction = user_info.user_restrictions.resolve(datetime.now())
+        if restriction.comment_forbidden:
+            raise MyException.error(ErrorCode.OPERATE_FAILED, "账号已被禁言，暂时无法评论")
 
     async def delete(self, comment_id: int) -> None:
         """

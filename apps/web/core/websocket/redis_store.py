@@ -5,6 +5,7 @@ from typing import Any
 
 from redis.asyncio import Redis
 
+from apps.base.constant.redis_constant import RedisConstant
 from apps.base.core.depend_inject import GetBean
 from apps.web.core.websocket.data import WebSocketEnvelope
 
@@ -15,7 +16,7 @@ class WebSocketRedisStore:
     CHANNEL = "ws:message"
     CONNECTION_KEY_PREFIX = "ws:user:connections"
     CONNECTION_CONVERSATION_KEY = "ws:connection:conversation"
-    USER_PROFILE_KEY_PREFIX = "ws:user:profile"
+    USER_PROFILE_KEY_PREFIX = RedisConstant.USER_PROFILE_CACHE_KEY_PREFIX
     GROUP_PROFILE_KEY_PREFIX = "ws:group:profile"
 
     def __init__(

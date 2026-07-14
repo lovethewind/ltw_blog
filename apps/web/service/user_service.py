@@ -32,10 +32,11 @@ from apps.web.dao.user_dao import UserDao
 from apps.web.dto.chat_dto import WSMessageDTO
 from apps.web.dto.notice_dto import NoticeSaveDTO
 from apps.web.dto.user_dto import (
+    CachedUserInfoDTO,
+    CachedUserRestrictionDTO,
     UserBaseInfoDTO,
     UserCommonInfoDTO,
     UserInfoDTO,
-    UserRestrictionDTO,
     UserSettingsType,
     WechatScanResultDTO,
     WechatScanResultEnum,
@@ -154,37 +155,15 @@ class UserService:
         return {"token": token}
 
     @staticmethod
-    async def _check_user_restriction(user: User) -> UserRestrictionDTO:
+    async def _check_user_restriction(user: User) -> CachedUserRestrictionDTO:
         """
-        检查用户限制并自动解除过期限制。
+        获取用户当前生效的限制。
 
         :param user: 用户对象。
         :return: 用户限制状态。
         """
-        user_restriction_dto = UserRestrictionDTO()
-        async with db.atomic() as session:
-            result = await session.execute(
-                select(UserRestriction).where(
-                    UserRestriction.user_id == user.id,
-                    UserRestriction.is_cancel.is_(False),
-                )
-            )
-            user_restrictions = result.scalars().all()
-            now = datetime.datetime.now()
-            for user_restriction in user_restrictions:
-                if not (user_restriction.is_forever or user_restriction.start_time <= now <= user_restriction.end_time):
-                    user_restriction.is_cancel = True
-                    user_restriction.cancel_time = now
-                    user_restriction.cancel_reason = "超过封禁时间，自动解除"
-                    continue
-                match user_restriction.restrict_type:
-                    case UserRestrictionTypeEnum.BAN:  # 封禁
-                        user.user_forbidden = True
-                        user_restriction_dto.user_forbidden = True
-                    case UserRestrictionTypeEnum.MUTE:  # 禁言
-                        user.comment_forbidden = True
-                        user_restriction_dto.comment_forbidden = True
-        return user_restriction_dto
+        user_info = await manager.get_user_info(user.id, CachedUserInfoDTO)
+        return user_info.user_restrictions.resolve(datetime.datetime.now())
 
     async def info(self) -> UserInfoDTO:
         """
@@ -196,7 +175,7 @@ class UserService:
         user = await db.model_first(select(User).where(User.id == user_id))
         if not user:
             raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
-        user.user_restriction = UserRestrictionDTO()
+        user.user_restrictions = CachedUserRestrictionDTO()
         dto = UserInfoDTO.model_validate(user, from_attributes=True)
         dto.email = DesensitizedUtil.email(dto.email)
         dto.mobile = DesensitizedUtil.mobile_phone(dto.mobile)
@@ -205,7 +184,7 @@ class UserService:
             dto.article_collect_set,
             dto.article_like_set,
             dto.comment_like_set,
-            dto.user_restriction,
+            dto.user_restrictions,
             dto.user_settings,
         ) = await asyncio.gather(
             self.redis_util.User.get_user_collect_articles(user_id),

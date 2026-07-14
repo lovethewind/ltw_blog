@@ -36,6 +36,16 @@ class AdminUserRedisMethod:
             await self._redis.set(key, value)
         return await self._redis.incr(key)
 
+    async def delete_user_profile_cache(self, user_id: int) -> None:
+        """
+        删除指定用户的资料缓存。
+
+        :param user_id: 用户 ID。
+        :return: None。
+        """
+        key = f"{RedisConstant.USER_PROFILE_CACHE_KEY_PREFIX}:{user_id}"
+        await self._redis.delete(key)
+
 
 @Component("adminRedisUtil")
 @RefreshScope("redis")

@@ -5,15 +5,10 @@ from typing import Optional, TypeAlias
 from pydantic import Field
 
 from apps.base.dto.user_dto import UserBaseInfoDTO
-from apps.base.enum.user import UserSettingsEnum
+from apps.base.enum.user import UserRestrictionTypeEnum, UserSettingsEnum
 from apps.web.dto.base_dto import BaseDTO
 
 UserSettingsType: TypeAlias = dict[UserSettingsEnum, str | bool]
-
-
-class UserRestrictionDTO(BaseDTO):
-    user_forbidden: bool = False
-    comment_forbidden: bool = False
 
 
 class UserInfoDTO(BaseDTO):
@@ -33,7 +28,7 @@ class UserInfoDTO(BaseDTO):
     summary: str
     background: str
     address: str
-    user_restriction: UserRestrictionDTO
+    user_restrictions: "CachedUserRestrictionDTO"
     # 喜欢文章id列表
     article_like_set: list[int] = Field(default=[])
     # 点赞文章id列表
@@ -85,6 +80,58 @@ class UserCommonInfoDTO(BaseDTO):
     user_settings: Optional[UserSettingsType] = None
 
 
+class CachedUserRestrictionItemDTO(BaseDTO):
+    """缓存用户限制明细。"""
+
+    restrict_type: UserRestrictionTypeEnum
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    is_forever: bool = False
+
+    def is_active(self, now: datetime) -> bool:
+        """
+        判断限制在指定时间是否生效。
+
+        :param now: 判定时间。
+        :return: 是否生效。
+        """
+        return self.is_forever or (
+            (self.start_time is None or self.start_time <= now) and (self.end_time is None or self.end_time >= now)
+        )
+
+
+class CachedUserRestrictionDTO(BaseDTO):
+    """内部缓存用户限制状态。"""
+
+    user_forbidden: bool = False
+    comment_forbidden: bool = False
+    items: list[CachedUserRestrictionItemDTO] = Field(default_factory=list)
+
+    def resolve(self, now: datetime) -> "CachedUserRestrictionDTO":
+        """
+        根据缓存明细生成指定时间生效的用户限制。
+
+        :param now: 判定时间。
+        :return: 当前生效的用户限制及汇总状态。
+        """
+        result = CachedUserRestrictionDTO()
+        for restriction in self.items:
+            if not restriction.is_active(now):
+                continue
+            result.items.append(restriction)
+            if restriction.restrict_type == UserRestrictionTypeEnum.BAN:
+                result.user_forbidden = True
+            elif restriction.restrict_type == UserRestrictionTypeEnum.MUTE:
+                result.comment_forbidden = True
+        return result
+
+
+class CachedUserInfoDTO(UserCommonInfoDTO):
+    """包含用户限制的内部缓存用户信息。"""
+
+    user_restrictions: CachedUserRestrictionDTO = Field(default_factory=CachedUserRestrictionDTO)
+
+
 class UserSimpleInfoDTO(BaseDTO):
     """
     用户极简信息，用于如文章列表里的头像昵称显示
@@ -110,9 +157,11 @@ class WechatScanResultDTO(BaseDTO):
 
 __all__ = [
     "UserBaseInfoDTO",
-    "UserRestrictionDTO",
     "UserInfoDTO",
     "UserCommonInfoDTO",
+    "CachedUserInfoDTO",
+    "CachedUserRestrictionDTO",
+    "CachedUserRestrictionItemDTO",
     "UserSimpleInfoDTO",
     "WechatScanResultEnum",
     "WechatScanResultDTO",

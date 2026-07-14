@@ -32,6 +32,7 @@ class RedisConstant:
     USER_FOLLOWER_COUNT_MAP_KEY = "user_follower_count_map"
     USER_FANS_COUNT_MAP_KEY = "user_fans_count_map"
     USER_VIEW_COUNT_MAP_KEY = "user_view_count_map"
+    USER_PROFILE_CACHE_KEY_PREFIX = "ws:user:profile"
 
     # 评论相关
     COMMENT_LIKE_COUNT_MAP_KEY = "comment_like_count_map"
