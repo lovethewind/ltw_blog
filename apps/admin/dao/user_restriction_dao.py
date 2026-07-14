@@ -37,7 +37,7 @@ class AdminUserRestrictionDao:
             stmt = stmt.where(UserRestriction.restrict_type == restrict_type)
         if is_cancel is not None:
             stmt = stmt.where(UserRestriction.is_cancel == is_cancel)
-        return await _paginate(stmt, current, size)
+        return await _paginate(stmt, current, size, UserRestriction.id.desc())
 
     async def get_user_restriction_by_id(self, restriction_id: int) -> UserRestriction | None:
         """

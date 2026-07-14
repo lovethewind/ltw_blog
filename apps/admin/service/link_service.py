@@ -24,7 +24,7 @@ class AdminLinkService(AdminBaseService):
         links, total = await self.admin_link_dao.list_links(
             query_vo.current, query_vo.size, query_vo.keyword, query_vo.status
         )
-        records = [AdminLinkDTO.model_validate(link) for link in links]
+        records = AdminLinkDTO.bulk_model_validate(links)
         return self._page_result(query_vo.current, query_vo.size, total, records)
 
     async def get_link(self, link_id: int) -> AdminLinkDTO:

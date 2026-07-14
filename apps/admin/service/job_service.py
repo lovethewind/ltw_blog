@@ -28,9 +28,14 @@ class AdminJobService(AdminBaseService):
         :return: 定时任务分页数据
         """
         jobs, total = await self.admin_job_dao.list_jobs(
-            query_vo.current, query_vo.size, query_vo.keyword, query_vo.group, query_vo.status
+            query_vo.current,
+            query_vo.size,
+            query_vo.keyword,
+            query_vo.group,
+            query_vo.status,
+            query_vo.create_user_id,
         )
-        records = [AdminJobDTO.model_validate(job) for job in jobs]
+        records = AdminJobDTO.bulk_model_validate(jobs)
         return self._page_result(query_vo.current, query_vo.size, total, records)
 
     async def get_job(self, job_id: int) -> AdminJobDTO:

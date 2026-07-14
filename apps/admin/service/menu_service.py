@@ -103,7 +103,7 @@ class AdminMenuService:
         :return: 角色列表
         """
         roles = await self.admin_menu_dao.list_roles()
-        return [AdminRoleDTO.model_validate(role) for role in roles]
+        return AdminRoleDTO.bulk_model_validate(roles)
 
     async def create_role(self, role_vo: AdminRoleCreateVO) -> AdminRoleDTO:
         """

@@ -1,7 +1,7 @@
 import datetime
 import os
 import uuid
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, unquote, urlsplit
 
 import alibabacloud_oss_v2 as oss
 import alibabacloud_oss_v2.aio as oss_aio
@@ -84,6 +84,20 @@ class OssUtil:
             return self.get_url(key)
         except Exception as e:
             logger.exception(f"上传文件失败: {e}")
+
+    async def delete_file(self, url: str) -> None:
+        """
+        根据资源地址删除 OSS 文件。
+
+        :param url: OSS 资源完整地址或对象 key。
+        :return: None。
+        :raises ValueError: 无法从资源地址解析对象 key 时抛出。
+        """
+        key = unquote(urlsplit(url).path).lstrip("/")
+        if not key:
+            raise ValueError("OSS 资源地址中缺少对象 key")
+        await self.client.delete_object(oss.DeleteObjectRequest(bucket=self.bucket_name, key=key))
+        logger.info(f"删除 OSS 文件成功: [{key}]")
 
     async def get_signature(self, dir_type: DirType, file_name: str) -> SignatureResultDTO:
         """

@@ -1,10 +1,12 @@
 from apps.admin.dao.comment_dao import AdminCommentDao
-from apps.admin.dto.comment_dto import AdminCommentDTO
+from apps.admin.dto.comment_dto import AdminCommentDTO, AdminCommentUserDTO
 from apps.admin.service.base_service import AdminBaseService
 from apps.admin.vo.comment_vo import AdminCommentQueryVO, AdminCommentStatusVO, AdminCommentUpdateVO
 from apps.base.core.depend_inject import Autowired, Component
 from apps.base.enum.error_code import ErrorCode
 from apps.base.exception.my_exception import MyException
+from apps.base.models.comment import Comment
+from apps.base.models.user import User
 
 
 @Component()
@@ -29,8 +31,43 @@ class AdminCommentService(AdminBaseService):
             query_vo.status,
             query_vo.user_id,
         )
-        records = [AdminCommentDTO.model_validate(comment) for comment in comments]
+        user_map = await self.admin_comment_dao.list_comment_users(list({comment.user_id for comment in comments}))
+        object_content_map = await self.admin_comment_dao.list_comment_object_contents(comments)
+        parent_content_map = await self.admin_comment_dao.list_parent_comment_contents(comments)
+        records = [
+            self._dump_comment(
+                comment,
+                user_map,
+                object_content_map,
+                parent_content_map,
+            )
+            for comment in comments
+        ]
         return self._page_result(query_vo.current, query_vo.size, total, records)
+
+    def _dump_comment(
+        self,
+        comment: Comment,
+        user_map: dict[int, User],
+        object_content_map: dict[tuple[int, int], str],
+        parent_content_map: dict[int, str],
+    ) -> AdminCommentDTO:
+        """
+        转换评论响应数据，并附加用户和对象摘要。
+
+        :param comment: 评论对象。
+        :param user_map: 用户 ID 到用户对象的映射。
+        :param object_content_map: 对象类型和对象 ID 到展示内容的映射。
+        :param parent_content_map: 父评论 ID 到评论内容的映射。
+        :return: 评论响应数据。
+        """
+        dto = AdminCommentDTO.model_validate(comment)
+        user = user_map.get(comment.user_id)
+        if user:
+            dto.user = AdminCommentUserDTO.model_validate(user)
+        dto.obj_content = object_content_map.get((comment.obj_type, comment.obj_id))
+        dto.parent_content = parent_content_map.get(comment.parent_id)
+        return dto
 
     async def get_comment(self, comment_id: int) -> AdminCommentDTO:
         """

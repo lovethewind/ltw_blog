@@ -13,7 +13,13 @@ class AdminJobDao:
     """后台定时任务数据访问对象。"""
 
     async def list_jobs(
-        self, current: int, size: int, keyword: str | None = None, group: str | None = None, status: int | None = None
+        self,
+        current: int,
+        size: int,
+        keyword: str | None = None,
+        group: str | None = None,
+        status: int | None = None,
+        create_user_id: int | None = None,
     ) -> tuple[list[Job], int]:
         """
         分页查询定时任务。
@@ -23,6 +29,7 @@ class AdminJobDao:
         :param keyword: 任务关键词。
         :param group: 任务组名。
         :param status: 任务状态。
+        :param create_user_id: 创建者 ID。
         :return: 任务列表和总数。
         """
         stmt = select(Job)
@@ -32,7 +39,9 @@ class AdminJobDao:
             stmt = stmt.where(Job.group == group)
         if status is not None:
             stmt = stmt.where(Job.status == status)
-        return await _paginate(stmt, current, size)
+        if create_user_id:
+            stmt = stmt.where(Job.create_user_id == create_user_id)
+        return await _paginate(stmt, current, size, Job.id.desc())
 
     async def get_job_by_id(self, job_id: int) -> Job | None:
         """

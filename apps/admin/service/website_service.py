@@ -24,7 +24,7 @@ class AdminWebsiteService(AdminBaseService):
         websites, total = await self.admin_website_dao.list_websites(
             query_vo.current, query_vo.size, query_vo.keyword, query_vo.category_id, query_vo.status, query_vo.user_id
         )
-        records = [AdminWebsiteDTO.model_validate(website) for website in websites]
+        records = AdminWebsiteDTO.bulk_model_validate(websites)
         return self._page_result(query_vo.current, query_vo.size, total, records)
 
     async def get_website(self, website_id: int) -> AdminWebsiteDTO:

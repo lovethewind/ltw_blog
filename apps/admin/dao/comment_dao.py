@@ -5,7 +5,11 @@ from sqlalchemy import select
 from apps.admin.dao.base_dao import _delete, _paginate, _update
 from apps.base.core.depend_inject import Component
 from apps.base.core.sqlalchemy.db_helper import db
+from apps.base.enum.action import ObjectTypeEnum
+from apps.base.models.article import Article
 from apps.base.models.comment import Comment
+from apps.base.models.picture import Picture
+from apps.base.models.user import User
 
 
 @Component()
@@ -55,6 +59,66 @@ class AdminCommentDao:
         :return: 评论对象。
         """
         return await db.model_first(select(Comment).where(Comment.id == comment_id))
+
+    async def list_comment_users(self, user_ids: list[int]) -> dict[int, User]:
+        """
+        批量查询评论用户。
+
+        :param user_ids: 用户 ID 列表。
+        :return: 用户 ID 到用户对象的映射。
+        """
+        if not user_ids:
+            return {}
+        users = await db.model_all(select(User).where(User.id.in_(user_ids)))
+        return {user.id: user for user in users}
+
+    async def list_comment_object_contents(self, comments: list[Comment]) -> dict[tuple[int, int], str]:
+        """
+        批量查询评论对象的展示内容。
+
+        :param comments: 评论列表。
+        :return: 对象类型和对象 ID 到展示内容的映射。
+        """
+        object_ids: dict[int, set[int]] = {}
+        for comment in comments:
+            object_ids.setdefault(comment.obj_type, set()).add(comment.obj_id)
+
+        contents: dict[tuple[int, int], str] = {}
+        article_ids = object_ids.get(ObjectTypeEnum.ARTICLE, set())
+        if article_ids:
+            articles = await db.model_all(select(Article).where(Article.id.in_(article_ids)))
+            contents.update({(ObjectTypeEnum.ARTICLE, article.id): article.title for article in articles})
+
+        comment_ids = object_ids.get(ObjectTypeEnum.COMMENT, set())
+        if comment_ids:
+            target_comments = await db.model_all(select(Comment).where(Comment.id.in_(comment_ids)))
+            contents.update({(ObjectTypeEnum.COMMENT, comment.id): comment.content for comment in target_comments})
+
+        user_ids = object_ids.get(ObjectTypeEnum.USER, set())
+        if user_ids:
+            users = await db.model_all(select(User).where(User.id.in_(user_ids)))
+            contents.update({(ObjectTypeEnum.USER, user.id): user.nickname or user.username for user in users})
+
+        picture_ids = object_ids.get(ObjectTypeEnum.PICTURE, set())
+        if picture_ids:
+            pictures = await db.model_all(select(Picture).where(Picture.id.in_(picture_ids)))
+            contents.update(
+                {(ObjectTypeEnum.PICTURE, picture.id): picture.description or picture.url for picture in pictures}
+            )
+        return contents
+
+    async def list_parent_comment_contents(self, comments: list[Comment]) -> dict[int, str]:
+        """
+        批量查询父级评论内容。
+
+        :param comments: 评论列表。
+        :return: 父评论 ID 到评论内容的映射。
+        """
+        parent_ids = {comment.parent_id for comment in comments if comment.parent_id}
+        if not parent_ids:
+            return {}
+        parent_comments = await db.model_all(select(Comment).where(Comment.id.in_(parent_ids)))
+        return {comment.id: comment.content for comment in parent_comments}
 
     async def update_comment(self, comment: Comment, data: dict[str, Any]) -> Comment:
         """

@@ -6,6 +6,7 @@ from apps.admin.dao.base_dao import _delete, _paginate, _update
 from apps.base.core.depend_inject import Component
 from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.models.message import Message
+from apps.base.models.user import User
 
 
 @Component()
@@ -53,6 +54,32 @@ class AdminMessageDao:
         :return: 留言对象。
         """
         return await db.model_first(select(Message).where(Message.id == message_id))
+
+    async def list_message_users(self, user_ids: list[int]) -> dict[int, User]:
+        """
+        批量查询留言用户。
+
+        :param user_ids: 用户 ID 列表。
+        :return: 用户 ID 到用户对象的映射。
+        """
+        valid_user_ids = [user_id for user_id in user_ids if user_id]
+        if not valid_user_ids:
+            return {}
+        users = await db.model_all(select(User).where(User.id.in_(valid_user_ids)))
+        return {user.id: user for user in users}
+
+    async def list_parent_message_contents(self, messages: list[Message]) -> dict[int, str]:
+        """
+        批量查询父级留言内容。
+
+        :param messages: 留言列表。
+        :return: 父留言 ID 到留言内容的映射。
+        """
+        parent_ids = {message.parent_id for message in messages if message.parent_id}
+        if not parent_ids:
+            return {}
+        parent_messages = await db.model_all(select(Message).where(Message.id.in_(parent_ids)))
+        return {message.id: message.content for message in parent_messages}
 
     async def update_message(self, message: Message, data: dict[str, Any]) -> Message:
         """

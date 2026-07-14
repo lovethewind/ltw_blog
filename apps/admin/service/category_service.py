@@ -20,7 +20,7 @@ class AdminCategoryService(AdminBaseService):
         :return: 分类列表
         """
         categories = await self.admin_category_dao.list_categories()
-        return [AdminCategoryDTO.model_validate(category) for category in categories]
+        return AdminCategoryDTO.bulk_model_validate(categories)
 
     async def create_category(self, category_vo: AdminCategoryCreateVO) -> AdminCategoryDTO:
         """

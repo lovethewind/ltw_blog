@@ -3,6 +3,16 @@ from datetime import datetime
 from apps.admin.dto.base_dto import BaseDTO
 
 
+class AdminMessageUserDTO(BaseDTO):
+    """后台留言用户摘要 DTO。"""
+
+    id: int
+    uid: int
+    username: str
+    nickname: str
+    avatar: str | None = None
+
+
 class AdminMessageDTO(BaseDTO):
     """
     后台留言 DTO。
@@ -20,3 +30,5 @@ class AdminMessageDTO(BaseDTO):
     first_level_id: int
     create_time: datetime
     update_time: datetime
+    user: AdminMessageUserDTO | None = None
+    parent_content: str | None = None

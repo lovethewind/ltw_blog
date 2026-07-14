@@ -23,7 +23,7 @@ class AdminConfigService(AdminBaseService):
         configs, total = await self.admin_config_dao.list_configs(
             query_vo.current, query_vo.size, query_vo.keyword, query_vo.is_active
         )
-        records = [AdminConfigDTO.model_validate(config) for config in configs]
+        records = AdminConfigDTO.bulk_model_validate(configs)
         return self._page_result(query_vo.current, query_vo.size, total, records)
 
     async def get_config(self, config_id: int) -> AdminConfigDTO:

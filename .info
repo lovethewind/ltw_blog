@@ -1,11 +1,11 @@
 {
   "project": "ltw-blog",
   "version": "0.0.1",
-  "generatedAt": "2026-07-13T20:22:27+08:00",
+  "generatedAt": "2026-07-14T12:35:22+08:00",
   "branch": "master",
-  "sourceCommit": "0cc3b4c5ba690c9f20d2f1fb414e4ab04f65050a",
-  "sourceCommitShort": "0cc3b4c",
-  "sourceCommitTime": "2026-07-13T18:51:00+08:00",
-  "sourceCommitSubject": "feat:定时任务功能优化",
+  "sourceCommit": "11dcdfa24cb5e3f9b3e81f10157171979ae5bc3e",
+  "sourceCommitShort": "11dcdfa",
+  "sourceCommitTime": "2026-07-14T12:34:40+08:00",
+  "sourceCommitSubject": "feat:定时任务方法位置优化，admin查询优化",
   "note": "pre-commit 生成；sourceCommit 为提交前 HEAD，不能表示本次提交自己的 hash。"
 }

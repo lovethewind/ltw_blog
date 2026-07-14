@@ -28,7 +28,7 @@ class AdminPictureAlbumService(AdminBaseService):
         albums, total = await self.admin_picture_album_dao.list_picture_albums(
             query_vo.current, query_vo.size, query_vo.keyword, query_vo.status, query_vo.album_type, query_vo.user_id
         )
-        records = [AdminPictureAlbumDTO.model_validate(album) for album in albums]
+        records = AdminPictureAlbumDTO.bulk_model_validate(albums)
         return self._page_result(query_vo.current, query_vo.size, total, records)
 
     async def get_picture_album(self, album_id: int) -> AdminPictureAlbumDTO:

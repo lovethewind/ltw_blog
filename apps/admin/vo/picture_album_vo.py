@@ -9,7 +9,7 @@ class AdminPictureAlbumQueryVO(BaseVO):
     """
 
     current: int = Field(default=1, ge=1)
-    size: int = Field(default=10, ge=1, le=100)
+    size: int = Field(default=10, ge=1, le=500)
     keyword: str | None = Field(default=None, max_length=100)
     status: int | None = Field(default=None, ge=1, le=3)
     album_type: int | None = Field(default=None, ge=1, le=2)

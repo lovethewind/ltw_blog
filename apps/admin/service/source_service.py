@@ -5,6 +5,7 @@ from apps.admin.vo.source_vo import AdminSourceQueryVO, AdminSourceUpdateVO
 from apps.base.core.depend_inject import Autowired, Component
 from apps.base.enum.error_code import ErrorCode
 from apps.base.exception.my_exception import MyException
+from apps.base.utils.oss_util import OssUtil
 
 
 @Component()
@@ -12,6 +13,7 @@ class AdminSourceService(AdminBaseService):
     """后台资源服务。"""
 
     admin_source_dao: AdminSourceDao = Autowired()
+    oss_util: OssUtil = Autowired()
 
     async def list_sources(self, query_vo: AdminSourceQueryVO) -> dict:
         """
@@ -23,7 +25,7 @@ class AdminSourceService(AdminBaseService):
         sources, total = await self.admin_source_dao.list_sources(
             query_vo.current, query_vo.size, query_vo.keyword, query_vo.user_id, query_vo.is_deleted
         )
-        records = [AdminSourceDTO.model_validate(source) for source in sources]
+        records = AdminSourceDTO.bulk_model_validate(sources)
         return self._page_result(query_vo.current, query_vo.size, total, records)
 
     async def update_source(self, source_id: int, source_vo: AdminSourceUpdateVO) -> AdminSourceDTO:
@@ -43,13 +45,16 @@ class AdminSourceService(AdminBaseService):
 
     async def delete_source(self, source_id: int) -> None:
         """
-        删除资源。
+        永久删除已标记资源及其 OSS 文件。
 
         :param source_id: 资源 ID
         :return: None
-        :raises MyException: 资源不存在时抛出
+        :raises MyException: 资源不存在或尚未标记删除时抛出
         """
         source = await self.admin_source_dao.get_source_by_id(source_id)
         if not source:
             raise MyException(ErrorCode.DATA_NOT_EXISTS)
+        if not source.is_deleted:
+            raise MyException.param_err("请先将资源标记为已删除")
+        await self.oss_util.delete_file(source.url)
         await self.admin_source_dao.delete_source(source_id)

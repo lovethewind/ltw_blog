@@ -23,7 +23,7 @@ class AdminNoticeService(AdminBaseService):
         notices, total = await self.admin_notice_dao.list_notices(
             query_vo.current, query_vo.size, query_vo.keyword, query_vo.user_id, query_vo.notice_type, query_vo.is_read
         )
-        records = [AdminNoticeDTO.model_validate(notice) for notice in notices]
+        records = AdminNoticeDTO.bulk_model_validate(notices)
         return self._page_result(query_vo.current, query_vo.size, total, records)
 
     async def get_notice(self, notice_id: int) -> AdminNoticeDTO:

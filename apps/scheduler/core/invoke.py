@@ -3,7 +3,7 @@ import inspect
 from collections.abc import Callable
 from typing import Any
 
-ALLOWED_TARGET_PREFIX = "apps.base.service."
+ALLOWED_TARGET_PREFIX = "apps.scheduler.tasks."
 
 
 def resolve_invoke_target(target: str) -> Callable[..., Any]:

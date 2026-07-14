@@ -9,12 +9,12 @@ from apps.base.utils.redis_util import RedisUtil
 
 
 @Component()
-class ActionCountSyncService:
-    """行为计数同步服务。"""
+class ActionCountSyncTask:
+    """行为计数同步任务。"""
 
     redis_util: RedisUtil = Autowired()
 
-    async def sync_action_count(self, batch_size: int = 500) -> int:
+    async def execute(self, batch_size: int = 500) -> int:
         """
         将 Redis dirty 计数同步到行为统计表。
 
@@ -100,10 +100,10 @@ class ActionCountSyncService:
 
 async def sync_action_count(batch_size: int = 500) -> int:
     """
-    定时任务入口：同步 Redis 行为计数到数据库。
+    同步 Redis 行为计数到数据库。
 
     :param batch_size: 单次最多同步数量。
     :return: 成功同步的计数项数量。
     """
-    service = GetBean(ActionCountSyncService)
-    return await service.sync_action_count(batch_size)
+    task = GetBean(ActionCountSyncTask)
+    return await task.execute(batch_size)

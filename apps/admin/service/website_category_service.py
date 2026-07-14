@@ -20,7 +20,7 @@ class AdminWebsiteCategoryService(AdminBaseService):
         :return: 网站导航分类列表
         """
         categories = await self.admin_website_category_dao.list_website_categories()
-        return [AdminWebsiteCategoryDTO.model_validate(category) for category in categories]
+        return AdminWebsiteCategoryDTO.bulk_model_validate(categories)
 
     async def create_website_category(self, category_vo: AdminWebsiteCategoryCreateVO) -> AdminWebsiteCategoryDTO:
         """

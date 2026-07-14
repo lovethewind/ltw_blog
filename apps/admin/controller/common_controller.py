@@ -36,7 +36,7 @@ class AdminCommonController:
         :return: 上传签名信息
         """
         ret = await self.oss_util.get_signature(
-            DirType(signature_vo.dir_type.upper()),
+            DirType[signature_vo.dir_type.upper()],
             signature_vo.file_name,
         )
         return ResponseUtil.success(ret)

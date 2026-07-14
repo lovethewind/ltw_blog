@@ -24,7 +24,7 @@ class AdminPictureService(AdminBaseService):
         pictures, total = await self.admin_picture_dao.list_pictures(
             query_vo.current, query_vo.size, query_vo.keyword, query_vo.album_id, query_vo.status, query_vo.user_id
         )
-        records = [AdminPictureDTO.model_validate(picture) for picture in pictures]
+        records = AdminPictureDTO.bulk_model_validate(pictures)
         return self._page_result(query_vo.current, query_vo.size, total, records)
 
     async def get_picture(self, picture_id: int) -> AdminPictureDTO:

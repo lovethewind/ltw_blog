@@ -41,7 +41,7 @@ class AdminNoticeDao:
             stmt = stmt.where(Notice.notice_type == notice_type)
         if is_read is not None:
             stmt = stmt.where(Notice.is_read == is_read)
-        return await _paginate(stmt, current, size)
+        return await _paginate(stmt, current, size, Notice.id.desc())
 
     async def get_notice_by_id(self, notice_id: int) -> Notice | None:
         """

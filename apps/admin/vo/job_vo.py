@@ -49,6 +49,7 @@ class AdminJobQueryVO(BaseVO):
     keyword: str | None = Field(default=None, max_length=100)
     group: str | None = Field(default=None, max_length=64)
     status: int | None = Field(default=None, ge=1, le=2)
+    create_user_id: int | None = None
 
 
 class AdminJobCreateVO(JobScheduleValidationMixin, BaseVO):

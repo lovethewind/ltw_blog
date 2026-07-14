@@ -37,7 +37,7 @@ class AdminSourceDao:
             stmt = stmt.where(Source.user_id == user_id)
         if is_deleted is not None:
             stmt = stmt.where(Source.is_deleted == is_deleted)
-        return await _paginate(stmt, current, size)
+        return await _paginate(stmt, current, size, Source.id.desc())
 
     async def get_source_by_id(self, source_id: int) -> Source | None:
         """
