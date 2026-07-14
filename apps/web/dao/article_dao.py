@@ -77,8 +77,14 @@ class ArticleDao:
         return await db.model_first(select(Article).where(Article.id == article_id))
 
     async def get_user_article_count(self, user_id: int):
+        """
+        获取用户文章数量
+
+        :param user_id: 用户ID。
+        :return: 数量
+        """
         stmt = (
-            select(func.count(Article))
+            select(func.count(Article.id))
             .select_from(Article)
             .where(
                 Article.user_id == user_id, Article.status == ArticleStatusEnum.PUBLISHED, Article.is_deleted == False
