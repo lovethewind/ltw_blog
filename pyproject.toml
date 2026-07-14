@@ -23,7 +23,7 @@ dependencies = [
     "aiokafka==0.14.0",
     "typing-extensions==4.15.0",
     "aiosmtplib==5.1.2",
-    "alibabacloud-dysmsapi20170525==4.5.1",
+    "alibabacloud-dypnsapi20170525==2.0.0",
     "kafka-python==3.0.5",
     "six==1.17.0",
     "pytz==2026.2",

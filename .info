@@ -1,11 +1,11 @@
 {
   "project": "ltw-blog",
   "version": "0.0.1",
-  "generatedAt": "2026-07-14T23:00:35+08:00",
+  "generatedAt": "2026-07-15T00:29:58+08:00",
   "branch": "master",
-  "sourceCommit": "430ac53bae4ff95a7177f3cdc44cdcfd9c9d8249",
-  "sourceCommitShort": "430ac53",
-  "sourceCommitTime": "2026-07-14T22:31:22+08:00",
-  "sourceCommitSubject": "feat:各项目独立依赖启动",
+  "sourceCommit": "3abc4f6cae74425112619d4b4afaf0ea0b8844c7",
+  "sourceCommitShort": "3abc4f6",
+  "sourceCommitTime": "2026-07-14T23:00:32+08:00",
+  "sourceCommitSubject": "feat:logger初始化优化",
   "note": "pre-commit 生成；sourceCommit 为提交前 HEAD，不能表示本次提交自己的 hash。"
 }

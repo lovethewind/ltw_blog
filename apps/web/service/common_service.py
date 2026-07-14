@@ -224,23 +224,33 @@ class CommonService:
         await self.kafka_util.send_sms(mobile, sms_type, code)
         await self.redis_util.VerifyCode.save_verify_code(mobile, code, mobile_code_vo.code_type)
 
-    async def get_user_mobile_code(self, mobile_code_vo: UserMobileCodeVO):
+    async def get_user_mobile_code(self, mobile_code_vo: UserMobileCodeVO) -> None:
+        """获取手机号验证码（需登录）。
+
+        :param mobile_code_vo: 手机号验证码参数。
+        :return: None。
         """
-        获取手机号验证码(需登录)
-        :param mobile_code_vo:
-        :return:
-        """
-        if mobile_code_vo.code_type == VerifyCodeTypeEnum.CHANGE_BIND:
-            sms_type = SmsConstant.TYPE_CHANGE_BIND
-        elif mobile_code_vo.code_type == VerifyCodeTypeEnum.CHANGE_PASSWORD:
-            sms_type = SmsConstant.TYPE_CHANGE_PASSWORD
-        else:
-            raise MyException(ErrorCode.PARAM_ERROR)
         user_id = ContextVars.token_user_id.get()
         user = await db.model_first(select(User).where(User.id == user_id))
+        if not user:
+            raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
+        if mobile_code_vo.code_type == VerifyCodeTypeEnum.CHANGE_BIND:
+            if mobile_code_vo.mobile:
+                mobile = mobile_code_vo.mobile
+                sms_type = SmsConstant.TYPE_BIND_NEW
+            else:
+                mobile = user.mobile
+                sms_type = SmsConstant.TYPE_CHANGE_BIND_OLD
+        elif mobile_code_vo.code_type == VerifyCodeTypeEnum.CHANGE_PASSWORD:
+            mobile = user.mobile
+            sms_type = SmsConstant.TYPE_VERIFY_BIND
+        else:
+            raise MyException(ErrorCode.PARAM_ERROR)
+        if not mobile:
+            raise MyException(ErrorCode.PARAM_ERROR)
         code = RandomUtil.random_numbers(6)
-        await self.kafka_util.send_sms(user.mobile, sms_type, code)
-        await self.redis_util.VerifyCode.save_verify_code(user.mobile, code, mobile_code_vo.code_type)
+        await self.kafka_util.send_sms(mobile, sms_type, code)
+        await self.redis_util.VerifyCode.save_verify_code(mobile, code, mobile_code_vo.code_type)
 
     async def valid_mobile_code(self, mobile_code_vo: MobileCodeVO):
         """

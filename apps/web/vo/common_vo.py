@@ -30,6 +30,7 @@ class MobileCodeVO(BaseVO):
 
 
 class UserMobileCodeVO(BaseVO):
+    mobile: Optional[str] = Field(default=None, pattern=r"^1[345789][0-9]{9}$")
     code: Optional[str] = Field(default=None, min_length=6, max_length=6)
     code_type: VerifyCodeTypeEnum
 
