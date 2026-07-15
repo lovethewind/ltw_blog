@@ -1,6 +1,7 @@
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Integer, String, Text
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from apps.base.core.sqlalchemy.base_model import BaseModel
@@ -29,5 +30,8 @@ class Article(BaseModel):
     status: Mapped[int] = mapped_column(
         Integer, default=ArticleStatusEnum.DRAFT.value, comment="文章状态 1:草稿 2:已发布 3:待审核 4:回收站"
     )
+    hot_score: Mapped[Decimal] = mapped_column(Numeric(20, 6), default=0, comment="热门分数")
+    recommend_score: Mapped[Decimal] = mapped_column(Numeric(20, 6), default=0, comment="推荐分数")
+    recommend_weight: Mapped[int] = mapped_column(Integer, default=0, comment="人工推荐权重")
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, comment="是否已删除(实现逻辑删除)")
     edit_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="最后编辑时间")

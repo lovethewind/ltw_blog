@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from apps.base.core.depend_inject import Autowired, Component
 from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.action import ObjectTypeEnum
-from apps.base.enum.comment import CommentStatusEnum
 from apps.base.enum.common import CheckStatusEnum
 from apps.base.enum.error_code import ErrorCode
 from apps.base.enum.picture import AlbumTypeEnum
@@ -234,41 +233,20 @@ class PictureService:
         :param sort_type: 排序类型。
         :return: 总数、当前页图片列表和可复用的评论数映射。
         """
-        picture_ids = list(await db.model_all(select(Picture.id).where(*filters).order_by(Picture.id.desc())))
-        if not picture_ids:
-            return 0, [], {}
-        picture_comment_count_map = None
-        if sort_type == "comment":
-            picture_comment_count_map = await self._get_comment_count_map(picture_ids, ObjectTypeEnum.PICTURE)
-            sorted_picture_ids = sorted(
-                picture_ids,
-                key=lambda picture_id: (picture_comment_count_map.get(picture_id, 0), picture_id),
-                reverse=True,
-            )
-        else:
-            picture_like_counts = await asyncio.gather(
-                *[self.redis_util.Picture.get_like_count(picture_id) for picture_id in picture_ids]
-            )
-            picture_like_count_map = dict(zip(picture_ids, picture_like_counts))
-            sorted_picture_ids = sorted(
-                picture_ids,
-                key=lambda picture_id: (picture_like_count_map.get(picture_id, 0), picture_id),
-                reverse=True,
-            )
-        current = current if current > 0 else 1
-        size = size if size > 0 else 10
-        page_picture_ids = sorted_picture_ids[(current - 1) * size : current * size]
-        if not page_picture_ids:
-            return len(picture_ids), [], picture_comment_count_map
-        picture_map = {
-            picture.id: picture
-            for picture in await db.model_all(select(Picture).where(Picture.id.in_(page_picture_ids)))
-        }
-        return (
-            len(picture_ids),
-            [picture_map[picture_id] for picture_id in page_picture_ids if picture_id in picture_map],
-            picture_comment_count_map,
+        offset, limit = db.page(current, size)
+        metric_count = Picture.comment_count if sort_type == "comment" else Picture.like_count
+        total, pictures = await asyncio.gather(
+            db.scalar(select(func.count()).select_from(Picture).where(*filters)),
+            db.model_all(
+                select(Picture)
+                .where(*filters)
+                .order_by(metric_count.desc(), Picture.id.desc())
+                .offset(offset)
+                .limit(limit)
+            ),
         )
+        picture_comment_count_map = {picture.id: picture.comment_count for picture in pictures}
+        return total, pictures, picture_comment_count_map
 
     async def _build_picture_records(
         self, pictures: list[Picture], user_id: int | None, picture_comment_count_map: dict[int, int] | None = None
@@ -283,9 +261,7 @@ class PictureService:
         """
         records = PictureDTO.bulk_model_validate(pictures)
         if picture_comment_count_map is None:
-            picture_comment_count_map = await self._get_comment_count_map(
-                [picture.id for picture in records], ObjectTypeEnum.PICTURE
-            )
+            picture_comment_count_map = {picture.id: picture.comment_count for picture in records}
         for picture in records:
             picture.user = await manager.get_user_info(picture.user_id, UserBaseInfoDTO)
             picture.like_count = await self.redis_util.Picture.get_like_count(picture.id)
@@ -375,23 +351,6 @@ class PictureService:
             await self.source_service.change_source_status(urls, user_id, session=session)
             await session.execute(delete(Picture).where(*filters))
             await self._clear_comment(picture_ids, obj_type=ObjectTypeEnum.PICTURE, session=session)
-
-    async def _get_comment_count_map(self, obj_ids: list[int], obj_type: ObjectTypeEnum) -> dict[int, int]:
-        """
-        批量获取对象已通过的评论数量。
-
-        :param obj_ids: 对象 ID 列表。
-        :param obj_type: 对象类型。
-        :return: 对象 ID 到评论数量的映射。
-        """
-        if not obj_ids:
-            return {}
-        count_info_list = await db.all(
-            select(Comment.obj_id, func.count(Comment.id).label("comment_count"))
-            .where(Comment.obj_id.in_(obj_ids), Comment.obj_type == obj_type, Comment.status == CommentStatusEnum.PASS)
-            .group_by(Comment.obj_id)
-        )
-        return {item.obj_id: item.comment_count for item in count_info_list}
 
     async def _clear_comment(
         self, obj_ids: list[int], obj_type: ObjectTypeEnum, session: AsyncSession | None = None

@@ -14,13 +14,10 @@ class RedisConstant:
     AVOID_REPEAT_SUBMIT_KEY = "avoid_repeat_submit"
 
     # 文章数量相关
-    ARTICLE_VIEW_COUNT_ADD_WAIT_KEY = "article_view_count_add_wait"
     ARTICLE_VIEW_COUNT_MAP_KEY = "article_view_count_map"
-    ARTICLE_PUBLISHED_VIEW_COUNT_ZSET_KEY = "article_published_view_count_zset"
     ARTICLE_LIKE_COUNT_MAP_KEY = "article_like_count_map"
     ARTICLE_COLLECT_COUNT_MAP_KEY = "article_collect_count_map"
     ARTICLE_COMMENT_COUNT_MAP_KEY = "article_comment_count_map"
-    ARTICLE_PUBLISHED_LIST_KEY = "article_published_list"
     # 用户相关
     USER_UID_GENERATOR_KEY = "user_uid_generator"
     USER_UNBLOCK_KEY = "user_unblock"
@@ -47,7 +44,6 @@ class RedisConstant:
     # 图片点赞
     USER_LIKE_PICTURE_SET_KEY = "user_like_picture_set"
     PICTURE_LIKE_COUNT_MAP_KEY = "picture_like_count_map"
-    PICTURE_LIKE_COUNT_ZSET_KEY = "picture_like_count_zset"
 
     # ES相关
     HOT_KEYWORDS_SEARCH_KEY = "hot_keywords_search"

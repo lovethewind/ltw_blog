@@ -126,11 +126,16 @@ create table t_article
     is_original  bool         not null default true comment '是否是原创',
     original_url varchar(512) not null default '' comment '原文链接',
     `status`     int          not null default 100000 comment '文章状态 1:草稿 2:已发布 3:待审核 4:回收站',
+    hot_score    decimal(20, 6) not null default 0 comment '热门分数',
+    recommend_score decimal(20, 6) not null default 0 comment '推荐分数',
+    recommend_weight int      not null default 0 comment '人工推荐权重',
     is_deleted   bool         not null default false comment '是否已删除(实现逻辑删除)',
     edit_time    datetime comment '最后编辑时间',
     create_time  datetime     not null comment '创建时间',
     update_time  datetime     not null comment '更新时间',
-    index idx_user_id_is_deleted_status (user_id, is_deleted, status)
+    index idx_user_id_is_deleted_status (user_id, is_deleted, status),
+    index idx_article_hot_sort (is_deleted, status, hot_score desc, id desc),
+    index idx_article_recommend_sort (is_deleted, status, recommend_score desc, id desc)
 ) comment '文章表';
 
 create table t_category
@@ -273,11 +278,15 @@ create table t_picture
     size        int          not null default 0 comment '图片大小',
     width       int          not null default 0 comment '图片宽度',
     height      int          not null default 0 comment '图片高度',
+    like_count  bigint       not null default 0 comment '点赞量',
+    comment_count bigint     not null default 0 comment '评论量',
     status      int          not null default 1 comment '状态 1:已通过 2:审核中 3:拒绝',
     create_time datetime     not null comment '创建时间',
     update_time datetime     not null comment '更新时间',
     index idx_user_id_status (user_id, status),
-    index idx_album_id_status (album_id, status)
+    index idx_album_id_status (album_id, status),
+    index idx_picture_like_sort (status, album_id, like_count desc, id desc),
+    index idx_picture_comment_sort (status, album_id, comment_count desc, id desc)
 ) comment '图片表';
 
 create table t_picture_album

@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime
 
-from sqlalchemy import ColumnElement, case, func, select
+from sqlalchemy import ColumnElement, func, select
 
 from apps.base.core.depend_inject import Autowired, Component
 from apps.base.core.sqlalchemy.db_helper import db
@@ -76,17 +76,9 @@ class ArticleService:
         stmt = select(Article).where(*filters)
         match article_query_vo.order_type:
             case OrderTypeEnum.BY_VIEW_COUNT:
-                # 按热度排序
-                total, article_ids = await asyncio.gather(
-                    db.scalar(total_stmt),
-                    self.redis_util.Article.get_published_article(current, size),
-                )
-                if not article_ids:
-                    return {"total": total, "records": []}
-                ordering = case({article_id: index for index, article_id in enumerate(article_ids)}, value=Article.id)
-                stmt = stmt.where(Article.id.in_(article_ids)).order_by(ordering)
-                records = await self.article_dao.get_article_detail_by_ids(articles=await db.model_all(stmt))
-                return {"total": total, "records": records}
+                stmt = stmt.order_by(Article.hot_score.desc(), Article.id.desc())
+            case OrderTypeEnum.BY_RECOMMEND:
+                stmt = stmt.order_by(Article.recommend_score.desc(), Article.id.desc())
             case OrderTypeEnum.BY_CREATE_TIME_ASC:
                 stmt = stmt.order_by(Article.id.asc())
             case _:

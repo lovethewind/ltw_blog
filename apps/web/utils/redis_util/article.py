@@ -224,6 +224,7 @@ class ArticleMethod:
         :param article_id: 文章 ID。
         :return: 新访问数。
         """
+        await self.get_article_view_count(article_id)
         ret = await self._redis.hincrby(RedisConstant.ARTICLE_VIEW_COUNT_MAP_KEY, str(article_id))
         await mark_action_count_dirty(
             self._redis,
@@ -233,33 +234,3 @@ class ArticleMethod:
             article_id,
         )
         return ret
-
-    async def get_published_article(self, current: int, size: int) -> list[int]:
-        """
-        获取已发布文章列表
-        :param current: 当前页
-        :param size: 每页数量
-        :return:
-        """
-        start = (current - 1) * size
-        end = start + size
-        ret = await self._redis.zrevrange(RedisConstant.ARTICLE_PUBLISHED_VIEW_COUNT_ZSET_KEY, start, end)
-        ret = [int(article_id) for article_id in ret]
-        return ret
-
-    async def add_published_article(self, article_id: int, view_count: int):
-        """
-        添加已发布文章
-        :param article_id: 文章id
-        :param view_count:
-        :return:
-        """
-        await self._redis.zadd(RedisConstant.ARTICLE_VIEW_COUNT_ADD_WAIT_KEY, {str(article_id): view_count})
-
-    async def delete_published_article(self, article_id: int):
-        """
-        移除已发布转为其他状态的文章
-        :param article_id: 文章id
-        :return:
-        """
-        await self._redis.zrem(RedisConstant.ARTICLE_VIEW_COUNT_ADD_WAIT_KEY, str(article_id))

@@ -104,6 +104,8 @@ class AdminArticleService(AdminBaseService):
         data = article_vo.model_dump(exclude_none=True)
         self._normalize_article_data(data)
         self._fill_thumbnail_url(data, "cover", "cover_thumb")
+        if "recommend_weight" in data:
+            data["recommend_score"] = article.recommend_score - article.recommend_weight + int(data["recommend_weight"])
         article = await self.admin_article_dao.update_article(article, data)
         return AdminArticleDTO.model_validate(article)
 

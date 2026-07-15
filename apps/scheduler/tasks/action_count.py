@@ -1,9 +1,11 @@
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from apps.base.constant.redis_constant import RedisConstant
 from apps.base.core.depend_inject import Autowired, Component, GetBean, logger
 from apps.base.core.sqlalchemy.db_helper import db
+from apps.base.enum.action import ActionTypeEnum, ObjectTypeEnum
 from apps.base.models.action import ActionCount
+from apps.base.models.picture import Picture
 from apps.base.utils.action_count_util import ActionCountDirtyItem, parse_action_count_dirty_member
 from apps.base.utils.redis_util import RedisUtil
 
@@ -48,6 +50,7 @@ class ActionCountSyncTask:
         :param count: 当前 Redis 计数值。
         :return: None。
         """
+        count = max(count, 0)
         action_count = await db.model_first(
             select(ActionCount).where(
                 ActionCount.obj_id == dirty_item.obj_id,
@@ -66,6 +69,8 @@ class ActionCountSyncTask:
             )
         async with db.atomic() as session:
             session.add(action_count)
+            if dirty_item.obj_type == ObjectTypeEnum.PICTURE and dirty_item.action_type == ActionTypeEnum.LIKE:
+                await session.execute(update(Picture).where(Picture.id == dirty_item.obj_id).values(like_count=count))
             await session.flush()
 
     async def _remove_synced_dirty_member(

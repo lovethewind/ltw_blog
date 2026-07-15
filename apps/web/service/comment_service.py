@@ -17,6 +17,7 @@ from apps.base.enum.notice import NoticeTypeEnum
 from apps.base.enum.user import UserSettingsEnum
 from apps.base.exception.my_exception import MyException
 from apps.base.models.comment import Comment
+from apps.base.utils.comment_count_util import sync_picture_comment_count
 from apps.web.core.context_vars import ContextVars
 from apps.web.core.kafka.util import KafkaUtil
 from apps.web.dao.article_dao import ArticleDao
@@ -143,8 +144,12 @@ class CommentService:
         comment = Comment(**comment_add_vo.model_dump())
         comment.user_id = user_id
         comment.status = CommentStatusEnum.PASS
-        comment = await db.create(comment)
-        await self.redis_util.Article.incr_article_comment_count(comment_add_vo.obj_id)
+        async with db.atomic() as session:
+            session.add(comment)
+            await session.flush()
+            await sync_picture_comment_count(session, comment.obj_type, comment.obj_id, None, comment.status)
+        if comment.obj_type == ObjectTypeEnum.ARTICLE:
+            await self.redis_util.Article.incr_article_comment_count(comment.obj_id)
         ret = CommentDTO.model_validate(comment, from_attributes=True)
         asyncio.create_task(self._send_notice(user_id, comment_add_vo))
         return ret
@@ -170,12 +175,36 @@ class CommentService:
         :return: None。
         """
         user_id = ContextVars.token_user_id.get()
-        await db.execute(
-            update(Comment)
-            .where(Comment.id == comment_id, Comment.user_id == user_id)
-            .values(status=CommentStatusEnum.DELETE)
+        comment = await db.model_first(
+            select(Comment).where(
+                Comment.id == comment_id,
+                Comment.user_id == user_id,
+                Comment.status != CommentStatusEnum.DELETE,
+            )
         )
-        await self.redis_util.Article.incr_article_comment_count(comment_id, -1)
+        if not comment:
+            return
+        async with db.atomic() as session:
+            result = await session.execute(
+                update(Comment)
+                .where(
+                    Comment.id == comment.id,
+                    Comment.user_id == user_id,
+                    Comment.status != CommentStatusEnum.DELETE,
+                )
+                .values(status=CommentStatusEnum.DELETE)
+            )
+            if result.rowcount == 0:
+                return
+            await sync_picture_comment_count(
+                session,
+                comment.obj_type,
+                comment.obj_id,
+                comment.status,
+                CommentStatusEnum.DELETE,
+            )
+        if comment.obj_type == ObjectTypeEnum.ARTICLE and comment.status == CommentStatusEnum.PASS:
+            await self.redis_util.Article.incr_article_comment_count(comment.obj_id, -1)
 
     async def _send_notice(self, user_id: int, comment_add_vo: CommentAddVO) -> None:
         """

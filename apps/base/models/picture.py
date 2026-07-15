@@ -22,6 +22,8 @@ class Picture(BaseModel):
     size: Mapped[int] = mapped_column(Integer, default=0, comment="图片大小")
     width: Mapped[int] = mapped_column(Integer, default=0, comment="图片宽度")
     height: Mapped[int] = mapped_column(Integer, default=0, comment="图片高度")
+    like_count: Mapped[int] = mapped_column(BigInteger, default=0, comment="点赞量")
+    comment_count: Mapped[int] = mapped_column(BigInteger, default=0, comment="评论量")
     status: Mapped[int] = mapped_column(
         Integer, default=CheckStatusEnum.PASS.value, comment="审核状态: 1: 已通过 2:审核中 3:拒绝"
     )

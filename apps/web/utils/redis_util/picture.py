@@ -84,13 +84,14 @@ class PictureMethod:
         :param picture_id:
         :return:
         """
+        await self._ensure_like_cache(user_id)
+        await self.get_like_count(picture_id)
         user_id = str(user_id)
         picture_id = str(picture_id)
         key = f"{RedisConstant.USER_LIKE_PICTURE_SET_KEY}:{user_id}"
         if bool(await self._redis.sismember(key, picture_id)):
             await asyncio.gather(
                 self._redis.srem(key, picture_id),
-                self._redis.zincrby(RedisConstant.PICTURE_LIKE_COUNT_ZSET_KEY, int(picture_id), -1),
                 self._redis.hincrby(RedisConstant.PICTURE_LIKE_COUNT_MAP_KEY, picture_id, -1),  # 数量减1
             )
             await mark_action_count_dirty(
@@ -103,7 +104,6 @@ class PictureMethod:
             return False
         await asyncio.gather(
             self._redis.sadd(key, picture_id),
-            self._redis.zincrby(RedisConstant.PICTURE_LIKE_COUNT_ZSET_KEY, int(picture_id), 1),
             self._redis.hincrby(RedisConstant.PICTURE_LIKE_COUNT_MAP_KEY, picture_id),  # 数量加1
         )
         await mark_action_count_dirty(

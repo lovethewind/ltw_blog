@@ -1,11 +1,11 @@
 {
   "project": "ltw-blog",
   "version": "0.0.1",
-  "generatedAt": "2026-07-15T20:51:59+08:00",
+  "generatedAt": "2026-07-15T23:12:04+08:00",
   "branch": "master",
-  "sourceCommit": "94d5cf8f8501c1aa805c323801f642a86e1c0639",
-  "sourceCommitShort": "94d5cf8",
-  "sourceCommitTime": "2026-07-15T00:29:55+08:00",
-  "sourceCommitSubject": "feat:短信验证码功能更新",
+  "sourceCommit": "78cc7bcb646bbaac6cc4c6790260756881d87f3d",
+  "sourceCommitShort": "78cc7bc",
+  "sourceCommitTime": "2026-07-15T23:11:54+08:00",
+  "sourceCommitSubject": "feat: 文章等排序查询优化",
   "note": "pre-commit 生成；sourceCommit 为提交前 HEAD，不能表示本次提交自己的 hash。"
 }

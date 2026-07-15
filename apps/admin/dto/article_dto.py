@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import Field
 
@@ -42,6 +43,9 @@ class AdminArticleDTO(BaseDTO):
     is_original: bool
     original_url: str
     status: int
+    hot_score: Decimal
+    recommend_score: Decimal
+    recommend_weight: int
     is_deleted: bool
     edit_time: datetime | None = None
     create_time: datetime

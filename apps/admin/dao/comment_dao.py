@@ -1,8 +1,8 @@
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 
-from apps.admin.dao.base_dao import _delete, _paginate, _update
+from apps.admin.dao.base_dao import _paginate
 from apps.base.core.depend_inject import Component
 from apps.base.core.sqlalchemy.db_helper import db
 from apps.base.enum.action import ObjectTypeEnum
@@ -10,6 +10,7 @@ from apps.base.models.article import Article
 from apps.base.models.comment import Comment
 from apps.base.models.picture import Picture
 from apps.base.models.user import User
+from apps.base.utils.comment_count_util import sync_picture_comment_count
 
 
 @Component()
@@ -128,7 +129,16 @@ class AdminCommentDao:
         :param data: 更新数据。
         :return: 评论对象。
         """
-        return await _update(comment, data)
+        if not data:
+            return comment
+        old_status = comment.status
+        new_status = data.get("status", old_status)
+        for key, value in data.items():
+            setattr(comment, key, value)
+        async with db.atomic() as session:
+            await session.execute(update(Comment).where(Comment.id == comment.id).values(**data))
+            await sync_picture_comment_count(session, comment.obj_type, comment.obj_id, old_status, new_status)
+        return comment
 
     async def delete_comment(self, comment_id: int) -> None:
         """
@@ -137,4 +147,9 @@ class AdminCommentDao:
         :param comment_id: 评论 ID。
         :return: None。
         """
-        await _delete(Comment, comment_id)
+        comment = await db.model_first(select(Comment).where(Comment.id == comment_id))
+        if not comment:
+            return
+        async with db.atomic() as session:
+            await session.execute(delete(Comment).where(Comment.id == comment_id))
+            await sync_picture_comment_count(session, comment.obj_type, comment.obj_id, comment.status, None)

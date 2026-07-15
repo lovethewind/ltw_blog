@@ -34,6 +34,7 @@ class AdminArticleCreateVO(BaseVO):
     is_original: bool = True
     original_url: str = Field(default="", max_length=512)
     status: int = Field(default=1, ge=1, le=4)
+    recommend_weight: int = Field(default=0, ge=-10000, le=10000)
 
 
 class AdminArticleUpdateVO(BaseVO):
@@ -53,6 +54,7 @@ class AdminArticleUpdateVO(BaseVO):
     is_original: bool | None = None
     original_url: str | None = Field(default=None, max_length=512)
     status: int | None = Field(default=None, ge=1, le=4)
+    recommend_weight: int | None = Field(default=None, ge=-10000, le=10000)
 
     @model_validator(mode="after")
     def ensure_update_field(self) -> "AdminArticleUpdateVO":
