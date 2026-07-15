@@ -15,6 +15,8 @@ class UserMethod:
     用户相关方法
     """
 
+    EMPTY_MEMBER = "__empty__"
+
     def __init__(self, redis: Redis):
         self._redis = redis
 
@@ -144,10 +146,9 @@ class UserMethod:
             )
             collects = await db.all(stmt)
             collects_map = {collect.obj_id: collect.create_time.timestamp() for collect in collects}
-            if collects_map:
-                await self._redis.zadd(key, collects_map)
+            await self._redis.zadd(key, {self.EMPTY_MEMBER: 0, **collects_map})
         ret = await self._redis.zrange(key, 0, -1)
-        ret = [int(article_id) for article_id in ret]
+        ret = [int(article_id) for article_id in ret if article_id != self.EMPTY_MEMBER]
         return ret
 
     async def is_collect_article(self, user_id: int, article_id: int) -> bool:
@@ -158,6 +159,8 @@ class UserMethod:
         :return:
         """
         key = f"{RedisConstant.USER_COLLECT_ARTICLE_ZSET_KEY}:{user_id}"
+        if not await self._redis.exists(key):
+            await self.get_user_collect_articles(user_id)
         ret = await self._redis.zscore(key, article_id)
         return ret is not None
 
@@ -178,13 +181,12 @@ class UserMethod:
             )
             likes = await db.all(stmt)
             likes_map = {like.obj_id: like.create_time.timestamp() for like in likes}
-            if likes_map:
-                await self._redis.zadd(key, likes_map)
+            await self._redis.zadd(key, {self.EMPTY_MEMBER: 0, **likes_map})
         ret = await self._redis.zrange(key, 0, -1)
-        ret = [int(article_id) for article_id in ret]
+        ret = [int(article_id) for article_id in ret if article_id != self.EMPTY_MEMBER]
         return ret
 
-    async def has_like_article(self, user_id: int, article_id: int):
+    async def has_like_article(self, user_id: int, article_id: int) -> bool:
         """
         用户是否已点赞该文章
         :param user_id:
@@ -192,6 +194,8 @@ class UserMethod:
         :return:
         """
         key = f"{RedisConstant.USER_LIKE_ARTICLE_ZSET_KEY}:{user_id}"
+        if not await self._redis.exists(key):
+            await self.get_user_like_articles(user_id)
         ret = await self._redis.zscore(key, article_id)
         return ret is not None
 
@@ -212,13 +216,12 @@ class UserMethod:
             )
             likes = await db.all(stmt)
             likes_map = {like.obj_id: like.create_time.timestamp() for like in likes}
-            if likes_map:
-                await self._redis.zadd(key, likes_map)
+            await self._redis.zadd(key, {self.EMPTY_MEMBER: 0, **likes_map})
         ret = await self._redis.zrange(key, 0, -1)
-        ret = [int(comment_id) for comment_id in ret]
+        ret = [int(comment_id) for comment_id in ret if comment_id != self.EMPTY_MEMBER]
         return ret
 
-    async def has_like_comment(self, user_id: int, comment_id: int):
+    async def has_like_comment(self, user_id: int, comment_id: int) -> bool:
         """
         用户是否已点赞该评论
         :param user_id:
@@ -226,5 +229,7 @@ class UserMethod:
         :return:
         """
         key = f"{RedisConstant.USER_LIKE_COMMENT_ZSET_KEY}:{user_id}"
+        if not await self._redis.exists(key):
+            await self.get_user_like_comments(user_id)
         ret = await self._redis.zscore(key, comment_id)
         return ret is not None

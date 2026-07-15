@@ -3,7 +3,7 @@ from typing import Any
 from apps.base.core.depend_inject import Component, RefreshScope
 from apps.base.utils.redis_util import RedisUtil as BaseRedisUtil
 
-from .acrion import ActionMethod
+from .action import ActionMethod
 from .article import ArticleMethod
 from .chat import ChatMethod
 from .comment import CommentMethod
