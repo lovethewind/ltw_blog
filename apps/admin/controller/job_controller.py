@@ -79,6 +79,17 @@ class AdminJobController:
         ret = await self.admin_job_service.update_job_status(job_id, status_vo)
         return ResponseUtil.success(ret)
 
+    @router.post("/{job_id}/execute", summary="立即执行一次定时任务")
+    @permission("job:update")
+    async def execute_job_once(self, job_id: int) -> Response:
+        """立即执行一次定时任务。
+
+        :param job_id: 定时任务 ID。
+        :return: 提交结果。
+        """
+        await self.admin_job_service.execute_job_once(job_id)
+        return ResponseUtil.success()
+
     @router.delete("/{job_id}", summary="删除定时任务")
     @permission("job:delete")
     async def delete_job(self, job_id: int) -> Response:

@@ -132,7 +132,7 @@ class DatabaseScheduler:
             self._fingerprints.pop(scheduler_job_id, None)
 
     async def handle_change_message(self, data: str | bytes) -> None:
-        """解析 Redis 任务变更消息并触发单任务对账。
+        """解析 Redis 任务消息并触发单任务对账或立即执行。
 
         :param data: Redis 消息内容
         :return: None
@@ -145,7 +145,49 @@ class DatabaseScheduler:
         except (AttributeError, json.JSONDecodeError, TypeError, ValueError) as exc:
             logger.warning(f"忽略无效的定时任务变更消息：{data!r}，原因：{exc}")
             return
+        action = payload.get("action", "reconcile")
+        if action == "execute":
+            request_id = payload.get("request_id")
+            if not isinstance(request_id, str) or not request_id:
+                logger.warning(f"忽略缺少 request_id 的立即执行消息：{data!r}")
+                return
+            await self.schedule_job_once(job_id, request_id)
+            return
+        if action != "reconcile":
+            logger.warning(f"忽略未知的定时任务操作：{action!r}")
+            return
         await self.reconcile_job(job_id)
+
+    async def schedule_job_once(self, job_id: int, request_id: str) -> None:
+        """向 APScheduler 提交一次性任务。
+
+        :param job_id: 数据库任务 ID。
+        :param request_id: 本次执行请求 ID，用于跨实例防重复。
+        :return: None。
+        """
+        if not self.redis_util:
+            raise RuntimeError("Redis 工具尚未初始化")
+        dedup_key = f"scheduler:job:execute:{request_id}"
+        accepted = await self.redis_util.redis.set(dedup_key, "1", ex=60, nx=True)
+        if not accepted:
+            return
+        job = await db.model_first(select(Job).where(Job.id == job_id))
+        if not job:
+            logger.warning(f"立即执行失败，定时任务[{job_id}]不存在")
+            return
+        try:
+            resolve_invoke_target(job.invoke_target)
+            self.scheduler.add_job(
+                self.execute_job,
+                trigger="date",
+                id=f"manual-job-{job_id}-{request_id}",
+                name=f"{job.name}（立即执行）",
+                args=[job.invoke_target],
+                misfire_grace_time=None,
+            )
+            logger.info(f"已提交定时任务[{job_id}:{job.name}]立即执行")
+        except (ImportError, TypeError, ValueError) as exc:
+            logger.error(f"提交定时任务[{job_id}:{job.name}]立即执行失败：{exc}")
 
     async def execute_job(self, target: str) -> Any:
         """执行单个数据库定时任务。

@@ -1,4 +1,5 @@
 import json
+import uuid
 
 from redis.exceptions import RedisError
 
@@ -112,6 +113,33 @@ class AdminJobService(AdminBaseService):
             raise MyException(ErrorCode.DATA_NOT_EXISTS)
         await self.admin_job_dao.delete_job(job_id)
         await self._publish_job_change(job_id)
+
+    async def execute_job_once(self, job_id: int) -> None:
+        """提交定时任务立即执行一次。
+
+        :param job_id: 定时任务 ID。
+        :return: None。
+        :raises MyException: 定时任务不存在或调度服务不可用时抛出。
+        """
+        job = await self.admin_job_dao.get_job_by_id(job_id)
+        if not job:
+            raise MyException(ErrorCode.DATA_NOT_EXISTS)
+        payload = json.dumps(
+            {
+                "action": "execute",
+                "job_id": job_id,
+                "request_id": uuid.uuid4().hex,
+            }
+        )
+        try:
+            subscriber_count = await self.redis_util.redis.publish(
+                RedisConstant.SCHEDULER_JOB_CHANGED_CHANNEL,
+                payload,
+            )
+        except RedisError as exc:
+            raise MyException.error(ErrorCode.OPERATE_FAILED, "提交定时任务执行失败") from exc
+        if not subscriber_count:
+            raise MyException.error(ErrorCode.OPERATE_FAILED, "定时任务服务未在线")
 
     async def _publish_job_change(self, job_id: int) -> None:
         """发布定时任务配置变更事件。
