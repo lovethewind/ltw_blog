@@ -16,8 +16,10 @@ from apps.base.models.job import Job
 from apps.base.utils.redis_util import RedisUtil
 from apps.scheduler.core.cron import build_cron_trigger
 from apps.scheduler.core.invoke import invoke_target, resolve_invoke_target
+from apps.scheduler.tasks.article_score import refresh_article_scores
 
 RECONCILE_JOB_ID = "system-job-reconciler"
+ARTICLE_SCORE_JOB_ID = "article-score-refresh"
 
 
 def build_job_options(job: Job) -> dict[str, Any]:
@@ -73,6 +75,16 @@ class DatabaseScheduler:
         await self._open_subscription()
         self._subscriber_task = asyncio.create_task(self._listen_job_changes(), name="scheduler-job-change-subscriber")
         await self.reconcile_jobs()
+        self.scheduler.add_job(
+            refresh_article_scores,
+            trigger="interval",
+            minutes=5,
+            id=ARTICLE_SCORE_JOB_ID,
+            name="刷新文章排序分数并同步 ES 指标",
+            replace_existing=True,
+            coalesce=True,
+            max_instances=1,
+        )
         self.scheduler.add_job(
             self.reconcile_jobs,
             trigger="interval",

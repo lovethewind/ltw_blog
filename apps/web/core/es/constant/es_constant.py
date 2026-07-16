@@ -32,6 +32,7 @@ class ESConstant:
             "like_count": {"type": "long", "index": False},
             "collect_count": {"type": "long", "index": False},
             "comment_count": {"type": "long", "index": False},
+            "hot_score": {"type": "double"},
         }
     }
 
@@ -54,12 +55,18 @@ class ESConstant:
                 "fields": {"content": {}, "title": {}},
             },
         }
-        if article_search_vo.order_type == OrderTypeEnum.BY_CREATE_TIME:
-            dsl["sort"] = [{"id": {"order": "asc"}}]
-        elif article_search_vo.order_type == OrderTypeEnum.BY_VIEW_COUNT:
-            dsl["sort"] = [{"view_count": {"order": "desc"}}]
+        if article_search_vo.order_type == OrderTypeEnum.BY_CREATE_TIME_ASC:
+            dsl["sort"] = [{"create_time": {"order": "asc"}}, {"id": {"order": "asc"}}]
+        elif article_search_vo.order_type == OrderTypeEnum.BY_CREATE_TIME_DESC:
+            dsl["sort"] = [{"create_time": {"order": "desc"}}, {"id": {"order": "desc"}}]
+        elif article_search_vo.order_type == OrderTypeEnum.BY_HOT_SCORE:
+            dsl["sort"] = [
+                {"hot_score": {"missing": "_last", "order": "desc", "unmapped_type": "double"}},
+                {"_score": {"order": "desc"}},
+                {"id": {"order": "desc"}},
+            ]
         else:
-            dsl["sort"] = [{"id": {"order": "desc"}}]
+            dsl["sort"] = [{"_score": {"order": "desc"}}, {"id": {"order": "desc"}}]
         return dsl
 
     @classmethod

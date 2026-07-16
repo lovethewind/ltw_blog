@@ -46,7 +46,7 @@ class RedisConstant:
     PICTURE_LIKE_COUNT_MAP_KEY = "picture_like_count_map"
 
     # ES相关
-    HOT_KEYWORDS_SEARCH_KEY = "hot_keywords_search"
+    HOT_KEYWORDS_SEARCH_KEY = "hot_search_phrases"
     RECOMMEND_ARTICLE_SEARCH_KEY = "recommend_article_search"
     KEYWORDS_SEARCH_ARTICLE_CACHE_KEY = "keywords_search_article_cache"
 

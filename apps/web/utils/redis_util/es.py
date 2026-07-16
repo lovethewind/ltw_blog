@@ -27,9 +27,8 @@ class ESMethod:
         :return:
         """
         key = f"{RedisConstant.HOT_KEYWORDS_SEARCH_KEY}:{datetime.today().date()}"
-        if not await self._redis.exists(key):
-            await self._redis.expire(key, timedelta(days=1))
         await self._redis.zincrby(key, 1, word)
+        await self._redis.expire(key, timedelta(days=2))
 
     async def get_daily_hot_words_list(self) -> list[str]:
         """
@@ -37,7 +36,7 @@ class ESMethod:
         :return:
         """
         key = f"{RedisConstant.HOT_KEYWORDS_SEARCH_KEY}:{datetime.today().date()}"
-        return await self._redis.zrevrange(key, 0, 10)
+        return await self._redis.zrevrange(key, 0, 9)
 
     async def get_recommend_article_list(self, article_id: int) -> dict[str, Any] | None:
         """

@@ -1,11 +1,11 @@
 {
   "project": "ltw-blog",
   "version": "0.0.1",
-  "generatedAt": "2026-07-16T00:01:55+08:00",
+  "generatedAt": "2026-07-17T00:13:36+08:00",
   "branch": "master",
-  "sourceCommit": "588ffba70387b39c235b60f55279e6a3f1eefad1",
-  "sourceCommitShort": "588ffba",
-  "sourceCommitTime": "2026-07-15T23:12:04+08:00",
-  "sourceCommitSubject": "feat: 文章等排序查询优化",
+  "sourceCommit": "2151b68d3bfc7b056cdb0f1001580749db9c0db0",
+  "sourceCommitShort": "2151b68",
+  "sourceCommitTime": "2026-07-16T23:31:53+08:00",
+  "sourceCommitSubject": "feat: 搜索功能优化",
   "note": "pre-commit 生成；sourceCommit 为提交前 HEAD，不能表示本次提交自己的 hash。"
 }

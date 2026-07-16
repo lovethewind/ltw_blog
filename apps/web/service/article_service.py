@@ -16,8 +16,8 @@ from apps.web.core.es.constant.es_constant import ESConstant
 from apps.web.core.es.utils.es_util import ESUtil
 from apps.web.dao.article_dao import ArticleDao
 from apps.web.dao.user_dao import UserDao
-from apps.web.dto.article_dto import ArticleBaseInfoDTO, ArticleDTO, ArticleListDTO
-from apps.web.dto.user_dto import UserBaseInfoDTO, UserSimpleInfoDTO
+from apps.web.dto.article_dto import ArticleBaseInfoDTO, ArticleDTO
+from apps.web.dto.user_dto import UserBaseInfoDTO
 from apps.web.service.source_service import SourceService
 from apps.web.utils.redis_util import WebRedisUtil
 from apps.web.utils.ws_util import manager
@@ -327,6 +327,7 @@ class ArticleService:
         :param article: 文章模型。
         :return: None。
         """
-        item = ArticleListDTO.model_validate(article, from_attributes=True)
-        item.user = await manager.get_user_info(article.user_id, UserSimpleInfoDTO)
-        await self.es_util.client.index(index=ESConstant.ARTICLE_INDEX, id=article.id, document=item.model_dump())
+        item = (await self.article_dao.get_article_detail_by_ids(articles=[article]))[0]
+        document = item.model_dump()
+        document["hot_score"] = float(document.get("hot_score") or 0)
+        await self.es_util.client.index(index=ESConstant.ARTICLE_INDEX, id=article.id, document=document)

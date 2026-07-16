@@ -1,4 +1,5 @@
 import datetime
+from decimal import Decimal
 from typing import Optional
 
 from pydantic import Field
@@ -31,6 +32,7 @@ class ArticleListDTO(BaseDTO):
     like_count: Optional[int] = Field(default=0)
     collect_count: Optional[int] = Field(default=0)
     comment_count: Optional[int] = Field(default=0)
+    hot_score: Decimal = Decimal(0)
     user: Optional[UserBaseInfoDTO] = None
 
 

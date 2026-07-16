@@ -8,9 +8,10 @@ class OrderTypeEnum(IntEnum):
     文章搜索排序类型。
     """
 
-    BY_CREATE_TIME = 1
-    BY_CREATE_TIME_ASC = 2
-    BY_VIEW_COUNT = 3
+    BY_RELEVANCE = 0
+    BY_CREATE_TIME_ASC = 1
+    BY_CREATE_TIME_DESC = 2
+    BY_HOT_SCORE = 3
 
 
 class BaseSearchVO(BaseVO):
@@ -28,7 +29,7 @@ class ArticleSearchVO(BaseSearchVO):
     文章搜索请求 VO。
     """
 
-    order_type: OrderTypeEnum = OrderTypeEnum.BY_CREATE_TIME
+    order_type: OrderTypeEnum = OrderTypeEnum.BY_RELEVANCE
 
 
 class ArticleRecommendVO(BaseVO):

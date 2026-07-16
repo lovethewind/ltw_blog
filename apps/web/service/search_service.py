@@ -1,4 +1,7 @@
 import asyncio
+import logging
+import re
+import unicodedata
 
 from sqlalchemy import func, or_, select
 
@@ -15,9 +18,13 @@ from apps.web.dto.user_dto import UserCommonInfoDTO
 from apps.web.utils.redis_util import WebRedisUtil
 from apps.web.vo.search_vo import ArticleRecommendVO, ArticleSearchVO, UserSearchVO
 
+logger = logging.getLogger(__name__)
+
 
 @Component()
 class SearchService:
+    HOT_SEARCH_STOP_WORDS = frozenset({"一个", "什么", "如何", "怎么", "这个", "那个"})
+
     redis_util: WebRedisUtil = Autowired()
     es_util: ESUtil = Autowired()
     article_dao: ArticleDao = Autowired()
@@ -31,6 +38,8 @@ class SearchService:
         """
         page = await self.redis_util.ES.get_article_search_result(article_search_vo)
         if page:
+            await self._record_hot_search(article_search_vo, page.get("total", 0))
+            await self._refresh_article_metrics(page.get("records", []))
             return page
         resp = await self.es_util.client.search(
             index=ESConstant.ARTICLE_INDEX, **ESConstant.get_article_search_dsl(article_search_vo)
@@ -38,7 +47,6 @@ class SearchService:
         total, records = 0, []
         if resp["hits"]["hits"]:
             total = resp["hits"]["total"]["value"]
-            await self.redis_util.ES.save_daily_hot_word(article_search_vo.keyword.strip())
             for item in resp["hits"]["hits"]:
                 record = item["_source"]
                 highlight_title = item["highlight"].get("title")
@@ -52,7 +60,70 @@ class SearchService:
                 records.append(ArticleListDTO.model_validate(record))
         page = {"total": total, "records": records}
         await self.redis_util.ES.cache_article_search_result(article_search_vo, page)
+        await self._record_hot_search(article_search_vo, total)
+        await self._refresh_article_metrics(records)
         return page
+
+    async def _refresh_article_metrics(self, records: list[ArticleListDTO]) -> None:
+        """
+        使用 Redis 中的实时计数补全 ES 搜索结果。
+
+        :param records: 当前页文章记录。
+        :return: None。
+        """
+
+        async def refresh_record(record: ArticleListDTO) -> None:
+            metric_names = ("view_count", "like_count", "collect_count", "comment_count")
+            metrics = await asyncio.gather(
+                self.redis_util.Article.get_article_view_count(record.id),
+                self.redis_util.Article.get_article_like_count(record.id),
+                self.redis_util.Article.get_article_collect_count(record.id),
+                self.redis_util.Article.get_article_comment_count(record.id),
+                return_exceptions=True,
+            )
+            for metric_name, metric in zip(metric_names, metrics):
+                if isinstance(metric, BaseException):
+                    logger.warning("读取文章[%s]实时指标[%s]失败: %s", record.id, metric_name, metric)
+                    continue
+                setattr(record, metric_name, metric)
+
+        await asyncio.gather(*(refresh_record(record) for record in records))
+
+    @classmethod
+    def _normalize_hot_search(cls, keyword: str) -> str | None:
+        """
+        规范化可用于热搜统计的完整搜索短语。
+
+        :param keyword: 用户提交的搜索内容。
+        :return: 规范化后的搜索短语；无效内容返回 None。
+        """
+        normalized_keyword = unicodedata.normalize("NFKC", keyword)
+        normalized_keyword = re.sub(r"\s+", " ", normalized_keyword).strip().casefold()
+        if not 2 <= len(normalized_keyword) <= 30:
+            return None
+        if normalized_keyword.isdecimal() or normalized_keyword in cls.HOT_SEARCH_STOP_WORDS:
+            return None
+        if not any(character.isalnum() for character in normalized_keyword):
+            return None
+        return normalized_keyword
+
+    async def _record_hot_search(self, article_search_vo: ArticleSearchVO, total: int) -> None:
+        """
+        记录第一页且有结果的文章搜索短语，统计失败不影响正常搜索。
+
+        :param article_search_vo: 文章搜索参数。
+        :param total: 搜索结果总数。
+        :return: None。
+        """
+        if article_search_vo.current_page != 1 or total <= 0:
+            return
+        keyword = self._normalize_hot_search(article_search_vo.keyword)
+        if not keyword:
+            return
+        try:
+            await self.redis_util.ES.save_daily_hot_word(keyword)
+        except Exception:
+            logger.warning("记录热搜短语失败: %s", keyword, exc_info=True)
 
     async def get_user_list(self, search_vo: UserSearchVO) -> dict:
         """
@@ -135,6 +206,7 @@ class SearchService:
             for record in records:
                 record.content = HtmlUtil.remove_html_tags(record.content)
                 record_dict = record.model_dump()
+                record_dict["hot_score"] = float(record_dict.get("hot_score") or 0)
                 record_dict["_index"] = ESConstant.ARTICLE_INDEX
                 record_dict["_id"] = record.id
                 ret.append(record_dict)
