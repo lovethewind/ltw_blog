@@ -1,6 +1,6 @@
 from typing import Any
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 
 from apps.admin.dao.base_dao import _create, _delete, _paginate, _update
 from apps.base.core.depend_inject import Component
@@ -68,6 +68,29 @@ class AdminArticleDao:
         :return: 文章对象。
         """
         return await db.model_first(select(Article).where(Article.id == article_id))
+
+    async def count_index_articles(self) -> int:
+        """
+        统计需要写入搜索索引的文章数量。
+
+        :return: 未删除文章数量。
+        """
+        total = await db.scalar(select(func.count(Article.id)).where(Article.is_deleted.is_(False)))
+        return int(total or 0)
+
+    async def list_index_articles(self, current: int, size: int) -> list[Article]:
+        """
+        分页查询需要写入搜索索引的文章。
+
+        :param current: 当前页码。
+        :param size: 每页条数。
+        :return: 文章列表。
+        """
+        offset, limit = db.page(current, size)
+        records = await db.model_all(
+            select(Article).where(Article.is_deleted.is_(False)).order_by(Article.id.desc()).offset(offset).limit(limit)
+        )
+        return list(records)
 
     async def create_article(self, data: dict[str, Any]) -> Article:
         """

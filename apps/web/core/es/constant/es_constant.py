@@ -1,40 +1,13 @@
 # @Time    : 2024/10/15 11:09
 # @Author  : frank
 # @File    : es_constant.py
+from apps.base.constant.es_constant import BaseESConstant
 from apps.base.enum.article import ArticleStatusEnum
 from apps.web.vo.search_vo import ArticleRecommendVO, ArticleSearchVO, OrderTypeEnum
 
 
-class ESConstant:
-    ARTICLE_INDEX = "article"
-    ARTICLE_INDEX_MAPPING = {
-        "properties": {
-            "id": {"type": "long"},
-            "user_id": {"type": "long"},
-            "cover": {"type": "keyword", "index": False},
-            "title": {
-                "type": "text",  # 改为text类型以便使用分析器
-                "analyzer": "ik_max_word",  # 使用ik_max_word分词器
-                "search_analyzer": "ik_smart",  # 搜索时使用ik_smart分词器
-            },
-            "content": {
-                "type": "text",  # 同样改为text类型
-                "analyzer": "ik_max_word",  # 使用ik_max_word分词器
-                "search_analyzer": "ik_smart",  # 搜索时使用ik_smart分词器
-            },
-            "category_id": {"type": "long"},
-            "tag_list": {"type": "long"},
-            "is_original": {"type": "boolean"},
-            "status": {"type": "integer"},
-            "create_time": {"type": "date"},
-            "update_time": {"type": "date", "index": False},
-            "view_count": {"type": "long"},
-            "like_count": {"type": "long", "index": False},
-            "collect_count": {"type": "long", "index": False},
-            "comment_count": {"type": "long", "index": False},
-            "hot_score": {"type": "double"},
-        }
-    }
+class ESConstant(BaseESConstant):
+    """Web 搜索 Elasticsearch 常量与 DSL。"""
 
     @classmethod
     def get_article_search_dsl(cls, article_search_vo: ArticleSearchVO):

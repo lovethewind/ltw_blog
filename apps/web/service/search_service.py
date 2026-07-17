@@ -15,6 +15,7 @@ from apps.web.core.es.utils.html_util import HtmlUtil
 from apps.web.dao.article_dao import ArticleDao
 from apps.web.dto.article_dto import ArticleBaseInfoDTO, ArticleListDTO
 from apps.web.dto.user_dto import UserCommonInfoDTO
+from apps.web.service.config_service import ConfigService
 from apps.web.utils.redis_util import WebRedisUtil
 from apps.web.vo.search_vo import ArticleRecommendVO, ArticleSearchVO, UserSearchVO
 
@@ -28,6 +29,7 @@ class SearchService:
     redis_util: WebRedisUtil = Autowired()
     es_util: ESUtil = Autowired()
     article_dao: ArticleDao = Autowired()
+    config_service: ConfigService = Autowired()
 
     async def get_es_article_list(self, article_search_vo: ArticleSearchVO) -> dict:
         """
@@ -90,18 +92,20 @@ class SearchService:
         await asyncio.gather(*(refresh_record(record) for record in records))
 
     @classmethod
-    def _normalize_hot_search(cls, keyword: str) -> str | None:
+    def _normalize_hot_search(cls, keyword: str, stop_words: set[str] | None = None) -> str | None:
         """
         规范化可用于热搜统计的完整搜索短语。
 
         :param keyword: 用户提交的搜索内容。
+        :param stop_words: 动态热搜停用词。
         :return: 规范化后的搜索短语；无效内容返回 None。
         """
         normalized_keyword = unicodedata.normalize("NFKC", keyword)
         normalized_keyword = re.sub(r"\s+", " ", normalized_keyword).strip().casefold()
         if not 2 <= len(normalized_keyword) <= 30:
             return None
-        if normalized_keyword.isdecimal() or normalized_keyword in cls.HOT_SEARCH_STOP_WORDS:
+        normalized_stop_words = cls.HOT_SEARCH_STOP_WORDS if stop_words is None else stop_words
+        if normalized_keyword.isdecimal() or normalized_keyword in normalized_stop_words:
             return None
         if not any(character.isalnum() for character in normalized_keyword):
             return None
@@ -117,7 +121,15 @@ class SearchService:
         """
         if article_search_vo.current_page != 1 or total <= 0:
             return
-        keyword = self._normalize_hot_search(article_search_vo.keyword)
+        try:
+            config = await self.config_service.get_published_search_analysis()
+            stop_words = {
+                unicodedata.normalize("NFKC", word).strip().casefold() for word in config.hot_search_stop_words
+            }
+        except Exception:
+            logger.warning("读取热搜停用词失败，使用默认配置", exc_info=True)
+            stop_words = set(self.HOT_SEARCH_STOP_WORDS)
+        keyword = self._normalize_hot_search(article_search_vo.keyword, stop_words)
         if not keyword:
             return
         try:

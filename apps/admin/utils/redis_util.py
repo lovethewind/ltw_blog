@@ -62,3 +62,23 @@ class AdminRedisUtil(BaseRedisUtil):
         """
         super().__init__()
         self.User: AdminUserRedisMethod = AdminUserRedisMethod(self.redis)
+
+    async def clear_search_cache(self) -> None:
+        """
+        清除文章关键词搜索和相关文章推荐缓存。
+
+        :return: None。
+        """
+        patterns = (
+            f"{RedisConstant.KEYWORDS_SEARCH_ARTICLE_CACHE_KEY}:*",
+            f"{RedisConstant.RECOMMEND_ARTICLE_SEARCH_KEY}:*",
+        )
+        for pattern in patterns:
+            batch: list[str] = []
+            async for key in self.redis.scan_iter(match=pattern, count=500):
+                batch.append(key)
+                if len(batch) >= 500:
+                    await self.redis.delete(*batch)
+                    batch.clear()
+            if batch:
+                await self.redis.delete(*batch)

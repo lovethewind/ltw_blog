@@ -1,7 +1,10 @@
 # @Time    : 2024/8/23 14:29
 # @Author  : frank
 # @File    : config_controller.py
-from fastapi import APIRouter
+from email.utils import format_datetime
+
+from fastapi import APIRouter, Request, Response
+from starlette.responses import PlainTextResponse
 
 from apps.base.core.depend_inject import Autowired, Controller
 from apps.base.utils.response_util import ResponseUtil
@@ -23,3 +26,18 @@ class ConfigController:
         """
         ret = await self.configService.get_config(key)
         return ResponseUtil.success(ret)
+
+    @router.get("/common/search-analysis/dictionary/{dictionary_type}", summary="获取 IK 远程词库")
+    async def get_search_analysis_dictionary(self, dictionary_type: str, request: Request) -> Response:
+        """
+        获取 IK 远程自定义词或停用词。
+
+        :param dictionary_type: 词库类型。
+        :param request: HTTP 请求。
+        :return: 纯文本词库或 304 响应。
+        """
+        content, etag, updated_at = await self.configService.get_search_analysis_dictionary(dictionary_type)
+        headers = {"ETag": etag, "Last-Modified": format_datetime(updated_at, usegmt=False)}
+        if request.headers.get("if-none-match") == etag:
+            return Response(status_code=304, headers=headers)
+        return PlainTextResponse(content, headers=headers)

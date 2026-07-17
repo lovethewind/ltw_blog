@@ -40,6 +40,44 @@ class AdminConfigDao:
         """
         return await db.model_first(select(Config).where(Config.id == config_id))
 
+    async def get_configs_by_names(self, names: list[str]) -> dict[str, Config]:
+        """
+        按配置键批量查询最新配置。
+
+        :param names: 配置键列表。
+        :return: 配置键到配置对象的映射。
+        """
+        if not names:
+            return {}
+        configs = await db.model_all(select(Config).where(Config.name.in_(names)).order_by(Config.id.desc()))
+        result: dict[str, Config] = {}
+        for config in configs:
+            result.setdefault(config.name, config)
+        return result
+
+    async def save_named_configs(self, configs: dict[str, tuple[str, str]]) -> None:
+        """
+        在同一事务中新增或更新一组具名配置。
+
+        :param configs: 配置键到“配置值、说明”的映射。
+        :return: None。
+        """
+        if not configs:
+            return
+        async with db.atomic() as session:
+            existing_records = await session.scalars(
+                select(Config).where(Config.name.in_(configs.keys())).order_by(Config.id.desc())
+            )
+            existing = {record.name: record for record in existing_records}
+            for name, (value, description) in configs.items():
+                config = existing.get(name)
+                if config:
+                    config.value = value
+                    config.description = description
+                    config.is_active = True
+                else:
+                    session.add(Config(name=name, value=value, description=description, is_active=True))
+
     async def create_config(self, data: dict[str, Any]) -> Config:
         """
         创建配置。
