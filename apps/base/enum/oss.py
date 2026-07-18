@@ -20,13 +20,13 @@ class DirTypeItem:
 
 
 class DirType(Enum):
-    AVATAR = DirTypeItem("media/avatar/", "image/*", 5, 10)
-    BACKGROUND = DirTypeItem("media/background/", "image/*", 20, 20)
-    COVER = DirTypeItem("media/cover/", "image/*", 10, 20)
-    THUMB = DirTypeItem("media/thumb/", "image/*", 5, 20)
-    EMOJI = DirTypeItem("media/emoji/", "image/*", 5, 10)
-    IMAGE = DirTypeItem("media/image/", "image/*", 20, 20)
-    AUDIO = DirTypeItem("media/audio/", "audio/*", 50, 20)
-    VIDEO = DirTypeItem("media/video/", "video/*", 200, 30)
-    ATTACH = DirTypeItem("media/attach/", "*/*", 1024, 30)
-    OTHER = DirTypeItem("media/other/", "*/*", 1024, 30)
+    AVATAR = DirTypeItem("media/avatar/", "image/*", 5, 120)
+    BACKGROUND = DirTypeItem("media/background/", "image/*", 20, 120)
+    COVER = DirTypeItem("media/cover/", "image/*", 10, 120)
+    THUMB = DirTypeItem("media/thumb/", "image/*", 5, 120)
+    EMOJI = DirTypeItem("media/emoji/", "image/*", 5, 120)
+    IMAGE = DirTypeItem("media/image/", "image/*", 20, 120)
+    AUDIO = DirTypeItem("media/audio/", "audio/*", 50, 120)
+    VIDEO = DirTypeItem("media/video/", "video/*", 200, 120)
+    ATTACH = DirTypeItem("media/attach/", "*/*", 1024, 120)
+    OTHER = DirTypeItem("media/other/", "*/*", 1024, 120)

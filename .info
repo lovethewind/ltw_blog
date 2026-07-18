@@ -1,11 +1,11 @@
 {
   "project": "ltw-blog",
   "version": "0.0.1",
-  "generatedAt": "2026-07-18T18:58:47+08:00",
+  "generatedAt": "2026-07-22T15:12:12+08:00",
   "branch": "master",
-  "sourceCommit": "266e5333958e8f5e616059fe83331d5d38db8def",
-  "sourceCommitShort": "266e533",
-  "sourceCommitTime": "2026-07-18T17:35:10+08:00",
-  "sourceCommitSubject": "feat: 微信扫码修复及优化",
+  "sourceCommit": "cbee7ffb64255517bc276e60e9c02857d50fd3e3",
+  "sourceCommitShort": "cbee7ff",
+  "sourceCommitTime": "2026-07-22T15:11:55+08:00",
+  "sourceCommitSubject": "feat: 私人笔记功能",
   "note": "pre-commit 生成；sourceCommit 为提交前 HEAD，不能表示本次提交自己的 hash。"
 }
