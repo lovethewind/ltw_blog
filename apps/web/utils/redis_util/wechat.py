@@ -16,6 +16,7 @@ class WechatScanContext:
     user_id: int | None
     open_id: str = ""
     scanned: bool = False
+    cancelled: bool = False
 
 
 class WechatScanUpdateResult(IntEnum):
@@ -81,6 +82,7 @@ class WechatMethod:
             "user_id": str(context.user_id) if context.user_id is not None else None,
             "open_id": context.open_id,
             "scanned": context.scanned,
+            "cancelled": context.cancelled,
         }
         await self._redis.set(key, json.dumps(data), ex=ex)
 
@@ -104,12 +106,53 @@ class WechatMethod:
             return 0
         end
         local context = cjson.decode(raw)
+        if context['cancelled'] == true then
+            return 0
+        end
+        local current_openid = context['open_id'] or ''
+        if current_openid ~= '' then
+            return 0
+        end
         context['scanned'] = true
         redis.call('SET', KEYS[1], cjson.encode(context), 'EX', ARGV[1])
         return 1
         """
         result = await self._redis.eval(script, 1, key, seconds)
         return bool(result)
+
+    async def cancel_random_code_scan(
+        self,
+        code: str,
+        ex: int | datetime.timedelta = datetime.timedelta(minutes=5),
+    ) -> WechatScanUpdateResult:
+        """
+        原子取消尚未确认的微信扫码操作。
+
+        :param code: 二维码随机码。
+        :param ex: 取消状态保留时间。
+        :return: 更新结果。
+        """
+        key = f"{RedisConstant.RANDOM_CODE_OPENID_KEY}:{code}"
+        seconds = int(ex.total_seconds()) if isinstance(ex, datetime.timedelta) else ex
+        script = """
+        local raw = redis.call('GET', KEYS[1])
+        if not raw then
+            return -1
+        end
+        local context = cjson.decode(raw)
+        if context['cancelled'] == true then
+            return 0
+        end
+        local current_openid = context['open_id'] or ''
+        if current_openid ~= '' then
+            return 0
+        end
+        context['cancelled'] = true
+        redis.call('SET', KEYS[1], cjson.encode(context), 'EX', ARGV[1])
+        return 1
+        """
+        result = await self._redis.eval(script, 1, key, seconds)
+        return WechatScanUpdateResult(result)
 
     async def update_random_code_openid(
         self, code: str, openid: str, ex: int | datetime.timedelta = datetime.timedelta(minutes=10)
@@ -130,6 +173,9 @@ class WechatMethod:
             return -1
         end
         local context = cjson.decode(raw)
+        if context['cancelled'] == true then
+            return 0
+        end
         local current_openid = context['open_id'] or ''
         if current_openid ~= '' then
             if current_openid == ARGV[1] then
@@ -164,6 +210,7 @@ class WechatMethod:
                 user_id=int(data["user_id"]) if data.get("user_id") is not None else None,
                 open_id=str(data.get("open_id", "")),
                 scanned=bool(data.get("scanned", False)),
+                cancelled=bool(data.get("cancelled", False)),
             )
         except KeyError, TypeError, ValueError, json.JSONDecodeError:
             return None

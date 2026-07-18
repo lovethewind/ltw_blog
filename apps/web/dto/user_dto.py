@@ -143,12 +143,13 @@ class UserSimpleInfoDTO(BaseDTO):
 
 
 class WechatScanResultEnum(IntEnum):
-    # 0:未扫码 1:未绑定 2:已绑定 3:已过期 4:已扫码待确认
+    # 0:未扫码 1:未绑定 2:已绑定 3:已过期 4:已扫码待确认 5:已取消
     NOT_SCAN = 0
     UNBIND = 1
     HAS_BIND = 2
     EXPIRED = 3
     SCANNED = 4
+    CANCELLED = 5
 
 
 class WechatScanResultDTO(BaseDTO):

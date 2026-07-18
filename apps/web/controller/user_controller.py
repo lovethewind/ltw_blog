@@ -245,6 +245,18 @@ class UserController:
         await self.user_service.notify_scan(code, state)
         return ResponseUtil.success()
 
+    @router.post("/common/wechat/scanCancel", summary="取消网站二维码扫码操作")
+    async def cancel_scan(self, code: str = Body(embed=True), state: str = Body(embed=True)) -> Response:
+        """
+        取消尚未确认的网站二维码扫码操作。
+
+        :param code: 服务器生成的二维码随机码。
+        :param state: 微信临时登录凭证。
+        :return: 成功响应。
+        """
+        await self.user_service.cancel_scan(code, state)
+        return ResponseUtil.success()
+
     @router.post("/wechat/bind", summary="绑定微信")
     async def bind_wechat(self, wechat_bind_params_vo: WechatBindParamsVO):
         """

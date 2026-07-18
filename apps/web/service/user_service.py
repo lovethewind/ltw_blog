@@ -702,6 +702,8 @@ class UserService:
                 await self.redis_util.Wechat.delete_random_code_openid(code)
             else:
                 dto.status = WechatScanResultEnum.UNBIND
+        elif context.cancelled:
+            dto.status = WechatScanResultEnum.CANCELLED
         elif context.scanned:
             dto.status = WechatScanResultEnum.SCANNED
         else:
@@ -730,6 +732,8 @@ class UserService:
                 # 保留旧微信验证结果，最终换绑时还需要再次校验并统一删除
             else:
                 dto.status = WechatScanResultEnum.UNBIND
+        elif context.cancelled:
+            dto.status = WechatScanResultEnum.CANCELLED
         elif context.scanned:
             dto.status = WechatScanResultEnum.SCANNED
         else:
@@ -758,6 +762,8 @@ class UserService:
                 # 这里先不删除验证码，修改密码时再次验证并删除
             else:
                 dto.status = WechatScanResultEnum.UNBIND
+        elif context.cancelled:
+            dto.status = WechatScanResultEnum.CANCELLED
         elif context.scanned:
             dto.status = WechatScanResultEnum.SCANNED
         else:
@@ -799,6 +805,28 @@ class UserService:
         if not open_id:
             raise MyException(ErrorCode.PARAM_ERROR)
         update_result = await self.redis_util.Wechat.update_random_code_openid(code, open_id)
+        if update_result == WechatScanUpdateResult.EXPIRED:
+            raise MyException(ErrorCode.WECHAT_VERIFY_TIMEOUT)
+        if update_result == WechatScanUpdateResult.CONFLICT:
+            raise MyException(ErrorCode.PARAM_ERROR)
+
+    async def cancel_scan(self, code: str, state: str) -> None:
+        """
+        取消尚未确认的微信扫码操作。
+
+        :param code: 服务器生成的二维码随机码。
+        :param state: 微信临时登录凭证。
+        :return: None。
+        """
+        if not await self.redis_util.Wechat.exist_random_code_openid(code):
+            raise MyException(ErrorCode.WECHAT_VERIFY_TIMEOUT)
+        open_id = await self.redis_util.Wechat.get_wechat_code_openid(state)
+        if not open_id:
+            open_id = await self.wechat_util.get_open_id(state)
+        if not open_id:
+            raise MyException(ErrorCode.PARAM_ERROR)
+        await self.redis_util.Wechat.save_wechat_code_openid(state, open_id)
+        update_result = await self.redis_util.Wechat.cancel_random_code_scan(code)
         if update_result == WechatScanUpdateResult.EXPIRED:
             raise MyException(ErrorCode.WECHAT_VERIFY_TIMEOUT)
         if update_result == WechatScanUpdateResult.CONFLICT:
