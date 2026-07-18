@@ -59,7 +59,7 @@ def avoid_repeat_submit(
                     biz_key = biz_key_value
                     break
             if biz_key is None:
-                logger.warn(f"{func.__name__} not found biz_key")
+                logger.warning(f"{func.__name__} not found biz_key")
             redis_util = ContainerUtil.autowired(RedisUtil)
             key = f"{RedisConstant.AVOID_REPEAT_SUBMIT_KEY}:{func.__name__}:{biz_key}"
             lock = redis_util.get_lock(key, timeout=timeout, renew=renew)

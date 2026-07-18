@@ -10,6 +10,7 @@ class UserBaseInfoDTO(BaseDTO):
     """
 
     id: Optional[int] = None
+    uid: Optional[int] = None
     nickname: Optional[str] = None
     avatar: Optional[str] = None
     address: Optional[str] = None

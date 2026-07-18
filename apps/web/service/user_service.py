@@ -42,6 +42,7 @@ from apps.web.dto.user_dto import (
     WechatScanResultEnum,
 )
 from apps.web.utils.redis_util import WebRedisUtil
+from apps.web.utils.redis_util.wechat import WechatScanUpdateResult
 from apps.web.utils.token_util import TokenUtil
 from apps.web.utils.ws_util import manager
 from apps.web.vo.user_vo import (
@@ -460,10 +461,15 @@ class UserService:
                     raise MyException(ErrorCode.CODE_VERIFY_ERROR)
                 await self.redis_util.VerifyCode.delete_verify_code(user.mobile, VerifyCodeTypeEnum.CHANGE_PASSWORD)
             case ChangePasswordTypeEnum.WECHAT_SCAN:
-                open_id = await self.redis_util.Wechat.get_random_code_openid(change_password_vo.random_code)
-                if user.wechat != open_id:
+                context = await self.redis_util.Wechat.get_random_code_context(change_password_vo.random_code)
+                if (
+                    not context
+                    or context.code_type != WechatCodeTypeEnum.CHANGE_PASSWORD
+                    or context.user_id != user_id
+                    or user.wechat != context.open_id
+                ):
                     raise MyException(ErrorCode.WECHAT_NOT_SCAN)
-                await self.redis_util.Wechat.delete_random_code(change_password_vo.random_code)
+                await self.redis_util.Wechat.delete_random_code_openid(change_password_vo.random_code)
         await db.execute(
             update(User).where(User.id == user_id).values(password=EncryptUtil.encrypt(change_password_vo.password))
         )
@@ -616,7 +622,10 @@ class UserService:
         :return: 登录令牌。
         """
         request = ContextVars.request.get()
-        open_id = await self.redis_util.Wechat.get_random_code_openid(register_vo.code)
+        context = await self.redis_util.Wechat.get_random_code_context(register_vo.code)
+        if not context or context.code_type != WechatCodeTypeEnum.LOGIN or context.user_id is not None:
+            raise MyException(ErrorCode.WECHAT_VERIFY_TIMEOUT)
+        open_id = context.open_id
         if not open_id:
             raise MyException(ErrorCode.WECHAT_VERIFY_TIMEOUT)
         user = User()
@@ -643,15 +652,24 @@ class UserService:
         token = TokenUtil.create_token(user.id, user.username)
         return {"token": token}
 
-    async def get_wechat_applet_code(self, code_type: WechatCodeTypeEnum):
+    async def get_wechat_applet_code(self, code_type: WechatCodeTypeEnum) -> dict[str, str]:
         """
-        获取微信小程序码
-        :param code_type: WechatCodeTypeEnum
-        :return:
+        获取微信小程序码。
+
+        :param code_type: 二维码用途类型。
+        :return: 二维码随机码及图片。
         """
+        user_id = ContextVars.token_user_id.get(None)
+        if code_type != WechatCodeTypeEnum.LOGIN and user_id is None:
+            raise MyException(ErrorCode.TOKEN_IS_EMPTY)
         code = self.wechat_util.get_random_code(code_type.value)
         result = await self.wechat_util.get_applet_code(code)
-        await self.redis_util.Wechat.save_random_code_openid(code, "")
+        await self.redis_util.Wechat.save_random_code_openid(
+            code,
+            "",
+            code_type=code_type.value,
+            user_id=None if code_type == WechatCodeTypeEnum.LOGIN else user_id,
+        )
         ret = {"code": code, "img": result}
         return ret
 
@@ -663,19 +681,29 @@ class UserService:
         :return: 扫码结果。
         """
         dto = WechatScanResultDTO()
-        if not await self.redis_util.Wechat.exist_random_code_openid(code):
+        context = await self.redis_util.Wechat.get_random_code_context(code)
+        user_id = ContextVars.token_user_id.get(None)
+        if not context or context.code_type not in {
+            WechatCodeTypeEnum.LOGIN,
+            WechatCodeTypeEnum.CHANGE_BIND_NEW,
+        }:
             dto.status = WechatScanResultEnum.EXPIRED
             return dto
-        open_id = await self.redis_util.Wechat.get_random_code_openid(code)
+        if context.code_type == WechatCodeTypeEnum.CHANGE_BIND_NEW and context.user_id != user_id:
+            dto.status = WechatScanResultEnum.EXPIRED
+            return dto
+        open_id = context.open_id
         if open_id:
             user = await db.model_first(select(User).where(User.wechat == open_id))
             if user:
-                token = TokenUtil.create_token(user.id, user.username)
                 dto.status = WechatScanResultEnum.HAS_BIND
-                dto.token = token
+                if context.code_type == WechatCodeTypeEnum.LOGIN:
+                    dto.token = TokenUtil.create_token(user.id, user.username)
                 await self.redis_util.Wechat.delete_random_code_openid(code)
             else:
                 dto.status = WechatScanResultEnum.UNBIND
+        elif context.scanned:
+            dto.status = WechatScanResultEnum.SCANNED
         else:
             dto.status = WechatScanResultEnum.NOT_SCAN
         return dto
@@ -689,18 +717,21 @@ class UserService:
         """
         user_id = ContextVars.token_user_id.get()
         dto = WechatScanResultDTO()
-        if not await self.redis_util.Wechat.exist_random_code_openid(code):
+        context = await self.redis_util.Wechat.get_random_code_context(code)
+        if not context or context.code_type != WechatCodeTypeEnum.CHANGE_BIND_OLD or context.user_id != user_id:
             dto.status = WechatScanResultEnum.EXPIRED
             return dto
-        open_id = await self.redis_util.Wechat.get_random_code_openid(code)
+        open_id = context.open_id
         if open_id:
             user = await db.model_first(select(User).where(User.id == user_id))
             if user and user.wechat == open_id:
                 # 已绑定,验证成功
                 dto.status = WechatScanResultEnum.HAS_BIND
-                await self.redis_util.Wechat.delete_random_code_openid(code)
+                # 保留旧微信验证结果，最终换绑时还需要再次校验并统一删除
             else:
                 dto.status = WechatScanResultEnum.UNBIND
+        elif context.scanned:
+            dto.status = WechatScanResultEnum.SCANNED
         else:
             dto.status = WechatScanResultEnum.NOT_SCAN
         return dto
@@ -714,10 +745,11 @@ class UserService:
         """
         user_id = ContextVars.token_user_id.get()
         dto = WechatScanResultDTO()
-        if not await self.redis_util.Wechat.exist_random_code_openid(code):
+        context = await self.redis_util.Wechat.get_random_code_context(code)
+        if not context or context.code_type != WechatCodeTypeEnum.CHANGE_PASSWORD or context.user_id != user_id:
             dto.status = WechatScanResultEnum.EXPIRED
             return dto
-        open_id = await self.redis_util.Wechat.get_random_code_openid(code)
+        open_id = context.open_id
         if open_id:
             user = await db.model_first(select(User).where(User.id == user_id))
             if user and user.wechat == open_id:
@@ -726,23 +758,51 @@ class UserService:
                 # 这里先不删除验证码，修改密码时再次验证并删除
             else:
                 dto.status = WechatScanResultEnum.UNBIND
+        elif context.scanned:
+            dto.status = WechatScanResultEnum.SCANNED
         else:
             dto.status = WechatScanResultEnum.NOT_SCAN
         return dto
 
-    async def scan_callback(self, code: str, state: str):
+    async def notify_scan(self, code: str, state: str) -> None:
         """
-        微信扫码成功获取用户信息
-        :param code: 服务器随机生成的code
-        :param state: 登录凭证code
-        :return:
+        标记小程序码已被有效微信扫描，等待用户确认。
+
+        :param code: 服务器生成的二维码随机码。
+        :param state: 微信临时登录凭证。
+        :return: None。
         """
+        if not await self.redis_util.Wechat.exist_random_code_openid(code):
+            raise MyException(ErrorCode.WECHAT_VERIFY_TIMEOUT)
         open_id = await self.redis_util.Wechat.get_wechat_code_openid(state)
         if not open_id:
             open_id = await self.wechat_util.get_open_id(state)
         if not open_id:
-            return
-        await self.redis_util.Wechat.save_random_code_openid(code, open_id, datetime.timedelta(minutes=10))
+            raise MyException(ErrorCode.PARAM_ERROR)
+        await self.redis_util.Wechat.save_wechat_code_openid(state, open_id)
+        if not await self.redis_util.Wechat.mark_random_code_scanned(code):
+            raise MyException(ErrorCode.WECHAT_VERIFY_TIMEOUT)
+
+    async def scan_callback(self, code: str, state: str) -> None:
+        """
+        确认微信扫码并保存随机码对应的 OpenID。
+
+        :param code: 服务器生成的二维码随机码。
+        :param state: 微信临时登录凭证。
+        :return: None。
+        """
+        if not await self.redis_util.Wechat.exist_random_code_openid(code):
+            raise MyException(ErrorCode.WECHAT_VERIFY_TIMEOUT)
+        open_id = await self.redis_util.Wechat.get_wechat_code_openid(state)
+        if not open_id:
+            open_id = await self.wechat_util.get_open_id(state)
+        if not open_id:
+            raise MyException(ErrorCode.PARAM_ERROR)
+        update_result = await self.redis_util.Wechat.update_random_code_openid(code, open_id)
+        if update_result == WechatScanUpdateResult.EXPIRED:
+            raise MyException(ErrorCode.WECHAT_VERIFY_TIMEOUT)
+        if update_result == WechatScanUpdateResult.CONFLICT:
+            raise MyException(ErrorCode.PARAM_ERROR)
 
     async def bind_wechat(self, wechat_bind_params_vo: WechatBindParamsVO) -> None:
         """
@@ -752,16 +812,27 @@ class UserService:
         :return: None。
         """
         user_id = ContextVars.token_user_id.get()
-        open_id = await self.redis_util.Wechat.get_random_code_openid(wechat_bind_params_vo.code)
-        if not open_id:
+        new_context = await self.redis_util.Wechat.get_random_code_context(wechat_bind_params_vo.code)
+        if (
+            not new_context
+            or new_context.code_type != WechatCodeTypeEnum.CHANGE_BIND_NEW
+            or new_context.user_id != user_id
+            or not new_context.open_id
+        ):
             raise MyException(ErrorCode.PARAM_ERROR)
+        open_id = new_context.open_id
         user = await db.model_first(select(User).where(User.id == user_id))
         if not user:
             raise MyException(ErrorCode.ACCOUNT_NOT_EXIST)
         if user.wechat:
             # 已经绑定过微信, 验证旧微信是否通过验证
-            wechat_open_id = await self.redis_util.Wechat.get_random_code_openid(wechat_bind_params_vo.old_code)
-            if wechat_open_id != user.wechat:
+            old_context = await self.redis_util.Wechat.get_random_code_context(wechat_bind_params_vo.old_code)
+            if (
+                not old_context
+                or old_context.code_type != WechatCodeTypeEnum.CHANGE_BIND_OLD
+                or old_context.user_id != user_id
+                or old_context.open_id != user.wechat
+            ):
                 raise MyException(ErrorCode.PARAM_ERROR)
         try:
             await db.execute(update(User).where(User.id == user_id).values(wechat=open_id))

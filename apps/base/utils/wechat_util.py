@@ -95,7 +95,7 @@ class WechatUtil:
                 url = f"{self.GET_WXA_CODE_URL}?access_token={access_token}"
                 response = await session.post(url, json=data)
                 ret: bytes = await response.read()
-                if ret.find(b"errcode"):
+                if ret.find(b"errcode") > -1:
                     raise RuntimeError(f"刷新access_token出错: {ret.decode()}")
             return base64.b64encode(ret).decode()
 

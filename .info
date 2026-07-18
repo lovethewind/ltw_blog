@@ -1,11 +1,11 @@
 {
   "project": "ltw-blog",
   "version": "0.0.1",
-  "generatedAt": "2026-07-17T15:56:32+08:00",
+  "generatedAt": "2026-07-18T17:35:12+08:00",
   "branch": "master",
-  "sourceCommit": "88c34f1fd653dfe55b4cf5db9480c4cbbb48e2f6",
-  "sourceCommitShort": "88c34f1",
-  "sourceCommitTime": "2026-07-17T00:13:36+08:00",
-  "sourceCommitSubject": "feat: 搜索功能优化",
+  "sourceCommit": "ef5ee5f1635242a36d7b2027da6e9945cc6dafc6",
+  "sourceCommitShort": "ef5ee5f",
+  "sourceCommitTime": "2026-07-17T15:56:29+08:00",
+  "sourceCommitSubject": "feat: es增加后台配置分词和停用词",
   "note": "pre-commit 生成；sourceCommit 为提交前 HEAD，不能表示本次提交自己的 hash。"
 }

@@ -1,4 +1,4 @@
-from fastapi import Body
+from fastapi import Body, Response
 from fastapi.routing import APIRouter
 
 from apps.base.core.depend_inject import Autowired, Controller
@@ -232,6 +232,18 @@ class UserController:
         """
         ret = await self.user_service.scan_callback(code, state)
         return ResponseUtil.success(ret)
+
+    @router.post("/common/wechat/scanNotify", summary="通知网站二维码已扫码待确认")
+    async def notify_scan(self, code: str = Body(embed=True), state: str = Body(embed=True)) -> Response:
+        """
+        通知网站二维码已被有效微信扫描，等待用户确认。
+
+        :param code: 服务器生成的二维码随机码。
+        :param state: 微信临时登录凭证。
+        :return: 成功响应。
+        """
+        await self.user_service.notify_scan(code, state)
+        return ResponseUtil.success()
 
     @router.post("/wechat/bind", summary="绑定微信")
     async def bind_wechat(self, wechat_bind_params_vo: WechatBindParamsVO):

@@ -27,7 +27,9 @@ class ConfigController:
         ret = await self.configService.get_config(key)
         return ResponseUtil.success(ret)
 
-    @router.get("/common/search-analysis/dictionary/{dictionary_type}", summary="获取 IK 远程词库")
+    @router.api_route(
+        "/common/search-analysis/dictionary/{dictionary_type}", methods=["GET", "HEAD"], summary="获取 IK 远程词库"
+    )
     async def get_search_analysis_dictionary(self, dictionary_type: str, request: Request) -> Response:
         """
         获取 IK 远程自定义词或停用词。
